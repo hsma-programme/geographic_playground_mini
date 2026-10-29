@@ -30,6 +30,8 @@ EXISTING_SHORT_NAMES = {
 }
 
 MODES = {"car": "By car", "pt": "By public transport"}
+# Demand scenarios; "2036" is an illustrative projection made for teaching, not an ONS forecast
+DEMANDS = {"today": "Today", "2036": "In 10 years (2036, projected)"}
 
 # What each objective asks, in the plain English shown to visitors. All are
 # "lower is better" so a single sort handles every one of them.
@@ -43,7 +45,7 @@ OBJECTIVES = {
 
 @dataclass(frozen=True)
 class Data:
-    demand: np.ndarray  # people aged 50-84 in each area
+    demand: dict  # scenario -> people aged 50-84 in each area
     imd: np.ndarray  # IMD decile, 1 = most deprived
     matrices: dict  # mode -> (n_areas, n_sites) travel minutes
     sites: pd.DataFrame
@@ -62,7 +64,7 @@ def load_data() -> Data:
         for name in sites["Facility_Name"]
     ]
     return Data(
-        demand=arrays["demand"],
+        demand={"today": arrays["demand"], "2036": arrays["demand_2036"]},
         imd=arrays["imd"],
         matrices={"car": arrays["car"], "pt": arrays["pt"]},
         sites=sites,
@@ -85,8 +87,8 @@ def nearest_site(data: Data, mode: str, new_sites=()) -> np.ndarray:
     return data.matrices[mode][:, cols].argmin(axis=1)
 
 
-def summarise(data: Data, times: np.ndarray, cutoff: float) -> dict:
-    w = data.demand
+def summarise(data: Data, times: np.ndarray, cutoff: float, demand: str = "today") -> dict:
+    w = data.demand[demand]
     deprived = data.imd <= DEPRIVED_MAX_DECILE
     return {
         "avg": float((times * w).sum() / w.sum()),
@@ -97,13 +99,13 @@ def summarise(data: Data, times: np.ndarray, cutoff: float) -> dict:
 
 
 @st.cache_data(show_spinner=False)
-def score_all_combinations(mode: str, n_new: int, cutoff: float) -> pd.DataFrame:
+def score_all_combinations(mode: str, n_new: int, cutoff: float, demand: str = "today") -> pd.DataFrame:
     """Score every way of adding `n_new` candidate sites to today's network."""
     data = load_data()
     rows = []
     for combo in itertools.combinations(data.candidates, n_new):
         times = nearest_time(data, mode, combo)
-        rows.append({"sites": combo, **summarise(data, times, cutoff)})
+        rows.append({"sites": combo, **summarise(data, times, cutoff, demand)})
     return pd.DataFrame(rows)
 
 

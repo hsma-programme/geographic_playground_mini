@@ -107,6 +107,13 @@ default; changing only the view keeps it. The cutoff slider shows only in the "t
 kept while hidden (the headline metric and optimiser still use it). The town pills,
 "Start again" / "Surprise me" and the metrics stay next to the map, because picking towns is the main action.
 
+A "Demand" sidebar section switches every metric and the optimiser between today's 50-84 population and the
+full playground's 2036 projection (`raw/demand_MF_50_84_projected_2036.csv`, copied from its
+`data/generate_projected_demand.py` output). That projection is synthetic, made for teaching, with extra growth
+around Kingsbridge; the help hover and footer say so. With the default cutoffs it changes the winners only by car
+with 2-3 new centres (Kingsbridge joins the "shortest average journey" winner, and the 2-centre "fewest far away"
+one); with 1 new centre, or by public transport, the winners don't change. The maps themselves don't depend on demand.
+
 To confirm: the footer links in `streamlit_app.py` (`FULL_PLAYGROUND_URL`, `CODE_URL`) point at the Bergam0t
 GitHub repos, since the full playground has no known deployed URL. The DES mini links to `hsma-programme/...`
 instead; update both if these move.

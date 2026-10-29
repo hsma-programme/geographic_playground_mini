@@ -4,7 +4,7 @@ Run from the repo root:  uv run --group precompute python scripts/precompute.py
 
 Writes:
   data/lsoa.geojson   LSOA polygons, simplified, feature id = row position
-  data/mini_data.npz  names, demand, IMD decile and the two travel matrices
+  data/mini_data.npz  names, demand (today and projected 2036), IMD decile and the two travel matrices
   data/sites.csv      the 18 sites (4 existing + 14 candidates)
 """
 
@@ -29,6 +29,9 @@ geo = geo.to_crs(4326)
 names = geo["LSOA21NM"].tolist()
 
 demand = pd.read_csv(RAW / "demand_MF_50_84.csv").set_index("LSOA 2021 Name")["MF50-84"]
+# Illustrative 2036 projection made for teaching (not an ONS forecast); copied from the
+# full playground, which builds it with data/generate_projected_demand.py
+demand_2036 = pd.read_csv(RAW / "demand_MF_50_84_projected_2036.csv").set_index("LSOA 2021 Name")["MF50-84"]
 imd = pd.read_csv(RAW / "devon_imd_2025_2021_LSOAs.csv").set_index("LSOA name (2021)")[IMD_COL]
 
 
@@ -42,6 +45,7 @@ np.savez_compressed(
     OUT / "mini_data.npz",
     names=np.array(names),
     demand=demand.loc[names].to_numpy(dtype="float32"),
+    demand_2036=demand_2036.loc[names].to_numpy(dtype="float32"),
     imd=imd.loc[names].to_numpy(dtype="int8"),
     car=load_matrix("travel_matrix_car.csv"),
     pt=load_matrix("travel_matrix_public_transport.csv"),

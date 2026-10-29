@@ -15,6 +15,10 @@ sapelsoasyoa20222024.xlsx: Open Government Licences 3.0 (https://www.nationalarc
 
 Used to generate demand_MF_50_84.csv
 
+demand_MF_50_84_projected_2036.csv is an illustrative, synthetic 10-year projection of demand_MF_50_84.csv made
+for teaching, not an ONS population projection. It is copied from the full geographic playground, which generates
+it with data/generate_projected_demand.py.
+
 ---
 
 LSOA_PopCentroids_EW_2021_V4_-4541397882496207062.gpkg: Open Government Licences 3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)

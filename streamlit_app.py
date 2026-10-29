@@ -12,6 +12,7 @@ from pathlib import Path
 import streamlit as st
 
 from core import (
+    DEMANDS,
     MAX_NEW_SITES,
     OBJECTIVES,
     label,
@@ -77,6 +78,7 @@ st.session_state.setdefault("view", "cutoff")
 # One radio per travel mode; choosing in one clears the other
 st.session_state.setdefault("map_choice_car", ("cutoff", "car"))
 st.session_state.setdefault("map_choice_pt", None)
+st.session_state.setdefault("demand", "today")
 st.session_state.setdefault("new_sites", [])
 # Bumped after each map tap so the chart remounts with no point left selected
 st.session_state.setdefault("map_taps", 0)
@@ -162,6 +164,24 @@ with st.sidebar:
     if st.session_state.view == "cutoff":
         st.slider("How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff")
 
+    st.divider()
+    st.subheader(
+        "Demand",
+        help=(
+            "Today uses ONS population estimates. The 2036 figures are an illustrative projection "
+            "made for teaching, not an official forecast: rural and coastal areas age faster than "
+            "the cities, especially in the South Hams."
+        ),
+    )
+    st.radio(
+        "Whose journeys count",
+        list(DEMANDS),
+        format_func=DEMANDS.get,
+        key="demand",
+        on_change=on_sites_change,
+        label_visibility="collapsed",
+    )
+
 # ---------------------------------------------------------------- tab 1
 with tab_build:
     st.markdown(
@@ -219,20 +239,26 @@ with tab_build:
 
     today_times = nearest_time(data, mode)
     now_times = nearest_time(data, mode, new_sites)
-    today = summarise(data, today_times, cutoff)
-    now = summarise(data, now_times, cutoff)
+    demand = st.session_state.demand
+    people = data.demand[demand]
+    who = "People aged 50-84" + (" in 2036" if demand == "2036" else "")
+    today = summarise(data, today_times, cutoff, demand)
+    now = summarise(data, now_times, cutoff, demand)
     # Anyone whose nearest centre is now quicker, whatever the time limit
     quicker = now_times < today_times
-    improved = float(data.demand[quicker].sum())
+    improved = float(people[quicker].sum())
     saved = (today_times - now_times)[quicker]
-    avg_saved = float((saved * data.demand[quicker]).sum() / improved) if improved else 0.0
+    avg_saved = float((saved * people[quicker]).sum() / improved) if improved else 0.0
 
     with ctrl_col:
         with st.container(key="headline"):
             st.metric(
-                f"People aged 50-84 more than {cutoff} min from a centre",
+                # Shorter ending in 2036 so the label still fits on one line
+                f"{who} more than {cutoff} min " + ("away" if demand == "2036" else "from a centre"),
                 f"{now['beyond']:,.0f}",
-                **delta_kwargs(now["beyond"] - today["beyond"], " vs today", 0, has_new, comma=True),
+                **delta_kwargs(
+                    now["beyond"] - today["beyond"], " vs today's centres", 0, has_new, comma=True
+                ),
             )
         m1, m2 = st.columns(2)
         m1.metric(
@@ -250,12 +276,12 @@ with tab_build:
             m3.metric(
                 "People helped",
                 f"{improved:,.0f}",
-                delta=f"{improved / data.demand.sum():.1%} of everyone",
+                delta=f"{improved / people.sum():.1%} of everyone",
                 delta_color="off",
                 delta_arrow="off",
                 help=(
-                    "People aged 50-84 whose nearest centre is now quicker to reach, by any amount, "
-                    "and what share of all people aged 50-84 that is."
+                    f"{who} whose nearest centre is now quicker to reach, by any amount, "
+                    "and what share of everyone aged 50-84 that is."
                 ),
             )
             m4.metric(
@@ -294,7 +320,7 @@ with tab_opt:
         st.info("Choose at least one new centre on the first tab, then come back here.")
     else:
         n_new = len(new_sites)
-        scores = score_all_combinations(mode, n_new, float(cutoff))
+        scores = score_all_combinations(mode, n_new, float(cutoff), demand)
         n_total = len(scores)
         st.markdown(
             f"You chose **{label(data, new_sites)}**. Is that the best place? "
@@ -392,6 +418,7 @@ footer_text.markdown(
     """
 )
 footer_text.caption(
-    "Population and deprivation data from the ONS (Open Government Licence). "
+    "Population and deprivation data from the ONS (Open Government Licence); "
+    "the 2036 population is an illustrative projection made for teaching. "
     "Travel times calculated from OpenStreetMap data (© OpenStreetMap contributors)."
 )
