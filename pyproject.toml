@@ -1,0 +1,18 @@
+[project]
+name = "geographic-playground-mini"
+version = "0.1.0"
+description = "A stand-friendly, one-page location optimisation playground"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=3.0.0",
+    "plotly>=6.0",
+    "streamlit>=1.61.1",
+]
+
+[dependency-groups]
+# Only needed to regenerate data/ from raw/ (scripts/precompute.py)
+precompute = [
+    "geopandas>=1.1.3",
+]

@@ -1,0 +1,132 @@
+"""The optimiser animation: a map that flicks through every combination of sites.
+
+Plotly's own frame animation (fig.frames + auto_play) only starts once Plotly.newPlot
+resolves, and on a map subplot that promise can stall until the basemap style has
+loaded - so autoplay silently never started. Instead the figure is exported as a
+single static map and a few lines of JS step through precomputed colours with
+Plotly.restyle on a timer. That also lets us draw a proper header and progress bar.
+"""
+
+import json
+
+import numpy as np
+import streamlit.components.v1 as components
+
+from core import Data, label, nearest_time
+from figures import travel_map
+
+MAP_HEIGHT = 560
+HEADER_HEIGHT = 96
+FOOTER_HEIGHT = 44
+
+
+def _frame_duration_ms(n_frames: int) -> int:
+    """Slow enough to read when there are few options, a blur when there are many."""
+    if n_frames <= 20:
+        return 700
+    if n_frames <= 120:
+        return 140
+    return 55
+
+
+def build_payload(data: Data, mode, scores, objective, seed=7) -> dict:
+    """Everything the browser needs: per-frame area colours, marker positions, captions.
+
+    Combinations are shown in random order (not listing order) so the "best so far"
+    changes as the search goes - which is what watching a real search looks like.
+    """
+    order = np.random.default_rng(seed).permutation(len(scores))
+    combos = [scores.iloc[i]["sites"] for i in order]
+    values = scores[objective].to_numpy()[order]
+    n = len(combos)
+
+    z, lat, lon, trying, best_text = [], [], [], [], []
+    best = 0
+    for k, combo in enumerate(combos):
+        if values[k] < values[best]:
+            best = k
+        site = data.sites.loc[list(combo)]
+        z.append(nearest_time(data, mode, combo).round(0).astype(int).tolist())
+        lat.append(site["Latitude"].tolist())
+        lon.append(site["Longitude"].tolist())
+        trying.append(f"<b>Trying:</b> {label(data, combo)} <span class='dim'>option {k + 1} of {n}</span>")
+        best_text.append(f"<b>Best so far:</b> {label(data, combos[best])} <span class='dim'>{values[best]:.1f} min average journey</span>")
+
+    # Final frame lands on the overall winner
+    winner = int(np.argmin(values))
+    site = data.sites.loc[list(combos[winner])]
+    z.append(z[winner])
+    lat.append(site["Latitude"].tolist())
+    lon.append(site["Longitude"].tolist())
+    trying.append(f"<b>Done!</b> All {n} options tried")
+    best_text.append(f"<b>Winner:</b> {label(data, combos[winner])} <span class='dim'>{values[winner]:.1f} min average journey</span>")
+
+    return dict(z=z, lat=lat, lon=lon, trying=trying, best=best_text, duration=_frame_duration_ms(n))
+
+
+PAGE_CSS = """
+body{margin:0;background:transparent;color:#fff;font-family:'Space Grotesk',sans-serif;}
+#hdr{height:%dpx;box-sizing:border-box;padding:6px 4px;font-size:21px;line-height:1.5;}
+#hdr .dim{opacity:.65;font-size:16px;margin-left:8px;}
+#bar{height:6px;background:#333;border-radius:3px;margin:0 0 8px;}
+#fill{height:100%%;width:0;background:#1fb1b9;border-radius:3px;}
+#ctl{height:%dpx;}
+button{background:#2b2b2b;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 16px;font-size:16px;cursor:pointer;}
+"""
+
+# Placeholder tokens are swapped in with str.replace, so the JS can keep literal braces
+PAGE_JS = """
+var P = __PAYLOAD__;
+var gd = document.getElementById('map');
+var i = 0, playing = true, timer = null;
+function show(k) {
+  Plotly.restyle(gd, {z: [P.z[k]]}, [0]);
+  Plotly.restyle(gd, {lat: [P.lat[k]], lon: [P.lon[k]]}, [3]);
+  document.getElementById('trying').innerHTML = P.trying[k];
+  document.getElementById('best').innerHTML = P.best[k];
+  document.getElementById('fill').style.width = (100 * (k + 1) / P.z.length) + '%';
+}
+function tick() {
+  if (!gd.data || !gd._fullLayout) { timer = setTimeout(tick, 200); return; }  // not drawn yet
+  show(i);
+  var last = (i === P.z.length - 1);
+  i = last ? 0 : i + 1;
+  if (playing) timer = setTimeout(tick, last ? 3500 : P.duration);
+}
+document.getElementById('toggle').onclick = function () {
+  playing = !playing;
+  this.textContent = playing ? 'Pause' : 'Play';
+  clearTimeout(timer);
+  if (playing) tick();
+};
+tick();
+"""
+
+
+def render_optimiser_animation(data: Data, mode, scores, objective="avg"):
+    payload = build_payload(data, mode, scores, objective)
+
+    # Drawn with no chosen sites so every candidate keeps its grey dot throughout;
+    # the first frame fills in the colours and the green marker.
+    fig = travel_map(data, mode, (), cutoff=0, view="time", height=MAP_HEIGHT)
+    fig.data[0].update(showscale=False, hovertemplate="%{z:.0f} min to nearest centre<extra></extra>")
+    fig.data[3].update(mode="markers", text=None)
+    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)")
+    map_html = fig.to_html(
+        full_html=False, include_plotlyjs="cdn", div_id="map",
+        config={"displayModeBar": False, "responsive": True},
+    )
+
+    html = (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap'>"
+        f"<style>{PAGE_CSS % (HEADER_HEIGHT, FOOTER_HEIGHT)}</style></head><body>"
+        "<div id='hdr'><div id='trying'></div><div id='best'></div></div>"
+        "<div id='bar'><div id='fill'></div></div>"
+        f"{map_html}"
+        "<div id='ctl'><button id='toggle'>Pause</button></div>"
+        f"<script>{PAGE_JS.replace('__PAYLOAD__', json.dumps(payload))}</script>"
+        "</body></html>"
+    )
+    components.html(html, height=HEADER_HEIGHT + MAP_HEIGHT + FOOTER_HEIGHT + 20)
+    return html

@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+:root { --readout-font: "Space Mono", monospace; }
+
+[data-testid="stMainBlockContainer"] { padding-top: 2.5rem; max-width: 1500px; }
+h1 { font-size: 2rem !important; padding: 0 0 0.25rem; }
+
+/* Big stand-friendly readouts */
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] * {
+    font-family: var(--readout-font) !important;
+}
+.st-key-headline [data-testid="stMetricValue"] { font-size: 2.6rem; }
+
+/* Bigger tap targets for the site pills and buttons */
+[data-testid="stPills"] button, .stButton button { min-height: 2.6rem; font-size: 1rem; }
+
+.big-number { font-family: var(--readout-font); font-size: 2rem; line-height: 1.1; }
+.big-number-label { font-size: 0.85rem; opacity: 0.75; }
+.champion-name { font-size: 1.25rem; font-weight: 600; }
+
+/* Hide the deploy button / header chrome */
+[data-testid="stToolbar"], [data-testid="stDecoration"] { display: none; }
+
+/* Let the town pills wrap onto several rows instead of scrolling sideways */
+[data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; }
