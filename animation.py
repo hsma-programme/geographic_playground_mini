@@ -81,7 +81,7 @@ var gd = document.getElementById('map');
 var i = 0, playing = true, timer = null;
 function show(k) {
   Plotly.restyle(gd, {z: [P.z[k]]}, [0]);
-  Plotly.restyle(gd, {lat: [P.lat[k]], lon: [P.lon[k]]}, [3]);
+  Plotly.restyle(gd, {lat: [P.lat[k], P.lat[k]], lon: [P.lon[k], P.lon[k]]}, [3, 4]);  // outline + marker
   document.getElementById('trying').innerHTML = P.trying[k];
   document.getElementById('best').innerHTML = P.best[k];
   document.getElementById('fill').style.width = (100 * (k + 1) / P.z.length) + '%';
@@ -107,10 +107,10 @@ def render_optimiser_animation(data: Data, mode, scores, objective="avg"):
     payload = build_payload(data, mode, scores, objective)
 
     # Drawn with no chosen sites so every candidate keeps its grey dot throughout;
-    # the first frame fills in the colours and the green marker.
+    # the first frame fills in the colours and the yellow marker.
     fig = travel_map(data, mode, (), cutoff=0, view="time", height=MAP_HEIGHT)
     fig.data[0].update(showscale=False, hovertemplate="%{z:.0f} min to nearest centre<extra></extra>")
-    fig.data[3].update(mode="markers", text=None)
+    fig.data[4].update(mode="markers", text=None)
     fig.update_layout(paper_bgcolor="rgba(0,0,0,0)")
     map_html = fig.to_html(
         full_html=False, include_plotlyjs="cdn", div_id="map",

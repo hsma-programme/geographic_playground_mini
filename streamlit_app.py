@@ -64,6 +64,8 @@ st.session_state.setdefault("mode", "car")
 st.session_state.setdefault("cutoff", DEFAULT_CUTOFF["car"])
 st.session_state.setdefault("view", "cutoff")
 st.session_state.setdefault("new_sites", [])
+# Bumped after each map tap so the chart remounts with no point left selected
+st.session_state.setdefault("map_taps", 0)
 
 
 def on_mode_change():
@@ -92,6 +94,23 @@ def delta_kwargs(diff, unit, decimals, show, comma=False):
 
 
 def on_sites_change():
+    st.session_state.optimiser_ran = False
+
+
+# Map traces that can be tapped: possible new centres, and your new centres (outline and dot)
+TAPPABLE_TRACES = {2, 3, 4}
+
+
+def on_map_click():
+    """Tapping a site on the map adds it, or removes it if already chosen."""
+    points = st.session_state[f"main_map_{st.session_state.map_taps}"].selection.points
+    tapped = [p["customdata"] for p in points if p["curve_number"] in TAPPABLE_TRACES]
+    st.session_state.map_taps += 1
+    if not tapped:
+        return
+    site = tapped[0]
+    sites = st.session_state.new_sites
+    st.session_state.new_sites = [s for s in sites if s != site] if site in sites else sites + [site]
     st.session_state.optimiser_ran = False
 
 
@@ -128,7 +147,8 @@ with tab_build:
         ### Where should the next diagnostic centre go?
 
         Devon has **4 community diagnostic centres**, and **you have budget for up to 3 more**.
-        Tap a town to open a centre there, and watch the red "too far" areas shrink.
+        Tap a grey dot on the map, or a town in the list, to open a centre there,
+        and watch the red "too far" areas shrink.
 
         This is called *location optimisation* - using a computer to
         <span style="color:#ffe600;font-weight:700">test where a service should go before anything is built</span>.
@@ -195,19 +215,24 @@ with tab_build:
             **delta_kwargs(now["worst"] - today["worst"], " min", 0, has_new),
         )
         if not has_new:
-            st.caption("Showing today's network. Tap a town above to add a centre.")
+            st.caption("Showing today's network. Tap a grey dot or a town to add a centre.")
 
     with map_col:
         st.plotly_chart(
-            travel_map(data, mode, new_sites, cutoff, view),
-            key="main_map",
+            travel_map(data, mode, new_sites, cutoff, view, selectable=True),
+            key=f"main_map_{st.session_state.map_taps}",
             width="stretch",
             config={"displayModeBar": False},
+            on_select=on_map_click,
+            selection_mode="points",
         )
         if view == "time":
-            st.caption("Hover over an area to see its journey time.")
+            st.caption("Hover over an area to see its journey time. Tap a dot to add or remove a centre.")
         else:
-            st.caption(f"Red areas are more than {cutoff} minutes from the nearest centre.")
+            st.caption(
+                f"Red areas are more than {cutoff} minutes from the nearest centre. "
+                "Tap a dot to add or remove a centre."
+            )
 
 # ---------------------------------------------------------------- tab 2
 with tab_opt:

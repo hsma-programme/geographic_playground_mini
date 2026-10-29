@@ -14,16 +14,17 @@ CENTRE = dict(lat=50.75, lon=-3.8)
 ZOOM = 7.6
 
 NEAR, FAR = "#2f80c9", "#e8453c"
+NEW_SITE = "#ffe600"  # yellow stands out against both the blue/red and journey-time maps
 TIME_COLORSCALE = [[0, "#1fb1b9"], [0.45, "#f6e8a4"], [1, "#b2182b"]]
 # Colour scale tops out here so car and public transport maps each use their range
 TIME_MAX = {"car": 60, "pt": 120}
 
 
-def _site_traces(data: Data, new_sites):
+def _site_traces(data: Data, new_sites, selectable=False):
     s = data.sites
     unchosen = [i for i in data.candidates if i not in new_sites]
 
-    def trace(idx, name, colour, size, text=True):
+    def trace(idx, name, colour, size, text=True, hover="{}"):
         idx = list(idx)
         return go.Scattermap(
             lat=s.loc[idx, "Latitude"],
@@ -34,19 +35,34 @@ def _site_traces(data: Data, new_sites):
             textposition="top center",
             textfont=dict(size=13, color="#111"),
             name=name,
-            hovertext=[data.short_names[i] for i in idx],
+            customdata=idx,
+            hovertext=[hover.format(data.short_names[i]) for i in idx],
             hoverinfo="text",
+            # Tapping a site selects it; don't let plotly fade everything else
+            selected=dict(marker=dict(opacity=1)),
+            unselected=dict(marker=dict(opacity=1)),
         )
 
+    remove_hover = "Tap to remove {}" if selectable else "{}"
+    # Trace order matters: animation.py restyles traces 3-4 and the tap callback
+    # in streamlit_app.py accepts taps on traces 2-4
     return [
         trace(data.existing, "Existing centre", "#0b2a6f", 18),
-        trace(unchosen, "Possible new centre", "#7a7a7a", 11, text=False),
-        trace(new_sites, "Your new centre", "#21a354", 22),
+        trace(
+            unchosen, "Possible new centre", "#7a7a7a", 16 if selectable else 11, text=False,
+            hover="Tap to open a centre in {}" if selectable else "{}",
+        ),
+        # Map markers can't have an outline, so a larger dark dot sits underneath
+        trace(new_sites, "Your new centre outline", "#111", 28, text=False, hover=remove_hover),
+        trace(new_sites, "Your new centre", NEW_SITE, 22, hover=remove_hover),
     ]
 
 
-def travel_map(data: Data, mode, new_sites, cutoff, view, height=640) -> go.Figure:
-    """The interactive map: binary 'beyond the cutoff' view or a time gradient."""
+def travel_map(data: Data, mode, new_sites, cutoff, view, height=640, selectable=False) -> go.Figure:
+    """The interactive map: binary 'beyond the cutoff' view or a time gradient.
+
+    selectable=True sizes and labels the candidate sites for tapping.
+    """
     times = nearest_time(data, mode, new_sites)
     if view == "cutoff":
         z = (times > cutoff).astype(int)
@@ -54,6 +70,8 @@ def travel_map(data: Data, mode, new_sites, cutoff, view, height=640) -> go.Figu
             geojson=data.geojson, locations=np.arange(len(z)), z=z,
             zmin=0, zmax=1, colorscale=[[0, NEAR], [1, FAR]], showscale=False,
             marker=dict(opacity=0.75, line_width=0),
+            selected=dict(marker=dict(opacity=0.75)),
+            unselected=dict(marker=dict(opacity=0.75)),
             customdata=times.round(0),
             hovertemplate="%{customdata:.0f} minutes to nearest centre<extra></extra>",
         )
@@ -63,9 +81,11 @@ def travel_map(data: Data, mode, new_sites, cutoff, view, height=640) -> go.Figu
             zmin=0, zmax=TIME_MAX[mode], colorscale=TIME_COLORSCALE,
             colorbar=dict(title="minutes", thickness=12, len=0.5, x=0.01, xanchor="left", y=0.2),
             marker=dict(opacity=0.75, line_width=0),
+            selected=dict(marker=dict(opacity=0.75)),
+            unselected=dict(marker=dict(opacity=0.75)),
             hovertemplate="%{z:.0f} minutes to nearest centre<extra></extra>",
         )
-    fig = go.Figure([choropleth, *_site_traces(data, new_sites)])
+    fig = go.Figure([choropleth, *_site_traces(data, new_sites, selectable)])
     fig.update_layout(
         map=dict(style=MAP_STYLE, center=CENTRE, zoom=ZOOM),
         margin=dict(l=0, r=0, t=0, b=0), height=height, showlegend=False,

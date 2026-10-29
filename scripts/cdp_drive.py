@@ -1,5 +1,5 @@
 """Tiny CDP driver: python cdp.py out_prefix step1 step2 ...
-Steps: wait:SECONDS | click:TEXT (click element whose text matches) | shot:NAME | js:EXPR
+Steps: wait:SECONDS | click:TEXT (click element whose text matches) | tapsite:TEXT (mouse tap on a map marker) | tapxy:X,Y | shot:NAME | js:EXPR
 """
 import asyncio, json, subprocess, sys, urllib.request, time, os
 import websockets
@@ -44,6 +44,28 @@ async def main():
                       var e=els.find(x=>x.innerText&&x.innerText.trim()===t)||els.find(x=>x.innerText&&x.innerText.includes(t)); if(!e) return 'not found: '+t; e.click(); return 'clicked '+t;})(%s)""" % json.dumps(arg)
                     r = await call("Runtime.evaluate", expression=js, returnByValue=True)
                     print(r["result"].get("value"))
+                elif kind in ("tapsite", "tapxy"):
+                    if kind == "tapxy":
+                        xy = [float(v) for v in arg.split(",")]
+                    else:
+                        # Real mouse press/release on a map marker whose hover text contains TEXT
+                        js = """(function(t){for(const gd of document.querySelectorAll('.js-plotly-plot')){
+                          const sub=gd._fullLayout&&gd._fullLayout.map&&gd._fullLayout.map._subplot; if(!sub) continue;
+                          for(const tr of gd._fullData){ if(tr.type!=='scattermap'||!tr.hovertext) continue;
+                            const i=[...tr.hovertext].findIndex(h=>String(h).includes(t)); if(i<0) continue;
+                            const p=sub.map.project([tr.lon[i],tr.lat[i]]), r=sub.map.getCanvas().getBoundingClientRect();
+                            return [r.left+p.x, r.top+p.y]; }}
+                          return null;})(%s)""" % json.dumps(arg)
+                        r = await call("Runtime.evaluate", expression=js, returnByValue=True)
+                        xy = r["result"].get("value")
+                        if not xy:
+                            print("not found on map: " + arg)
+                            continue
+                    for typ in ("mouseMoved", "mousePressed", "mouseReleased"):
+                        await call("Input.dispatchMouseEvent", type=typ, x=xy[0], y=xy[1],
+                                   button="left" if typ != "mouseMoved" else "none", clickCount=1)
+                        await asyncio.sleep(0.15)
+                    print("tapped %s at %.0f,%.0f" % (arg, xy[0], xy[1]))
                 elif kind == "js":
                     r = await call("Runtime.evaluate", expression=arg, returnByValue=True)
                     print(r["result"].get("value"))

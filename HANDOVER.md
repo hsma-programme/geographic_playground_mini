@@ -57,6 +57,14 @@ Key design decisions:
 4. **Pills overflow sideways by default**; `style.css` forces `stButtonGroup` to wrap.
 5. **Bash tool quoting**: large heredocs mixing apostrophes and quotes failed to parse. Use the Write tool for
    files with prose.
+6. **Tapping a site on the map** uses `st.plotly_chart(on_select=on_map_click, selection_mode="points")`, which
+   does work on `Scattermap` traces. Two things it needs: every trace sets `selected`/`unselected` opacity, or
+   plotly fades everything but the tapped dot; and the chart key carries a counter (`main_map_{map_taps}`)
+   bumped on each tap, so the chart remounts with nothing selected. Without it a stale selection would swallow
+   the next tap on the same trace position. The callback matches on `customdata` (site index) and only on
+   traces 2-4 (possible new centres, then the chosen centres' dark outline and yellow dot), so taps on areas
+   and existing centres do nothing. Map markers have no outline property, hence the separate outline trace;
+   `animation.py` moves traces 3 and 4 together.
 
 ## Testing
 
@@ -68,7 +76,9 @@ Chrome, opens `http://localhost:8599/` and runs steps:
     uv run python scripts/cdp_drive.py out/run1 wait:12 click:Barnstaple wait:3 click:Okehampton \
         click:"2 · Watch the optimiser" wait:2 click:"Run the optimiser" wait:8 shot:tall
 
-Steps: `wait:SECONDS`, `click:TEXT` (exact then substring match on buttons/tabs/pills), `shot:NAME`, `js:EXPR`.
+Steps: `wait:SECONDS`, `click:TEXT` (exact then substring match on buttons/tabs/pills), `tapsite:TEXT` (real
+mouse tap on the map marker whose hover text contains TEXT), `tapxy:X,Y` (mouse tap at a viewport position),
+`shot:NAME`, `js:EXPR`.
 It saves `out/run1_NAME.png`. Notes: `--virtual-time-budget` screenshots do NOT work (they capture only
 Streamlit's loading skeleton); allow roughly 12 seconds for first load; the window is 1500 wide and 2600 tall so
 the whole page shows. Chrome's path is hard-coded for Windows. `out/` and `*_profile/` are git-ignored.
@@ -110,7 +120,10 @@ choose" tally (local CSV on the stand laptop), a "who benefits" overlay by depri
 sensitive in an NHS setting, so probably presenter-only), and a collapsed presenter cheat-sheet.
 
 Technical follow-ups:
-- A Leaflet/MapLibre Streamlit custom component would give instant client-side map updates and tappable pins.
+- Sites can now be tapped on the plotly map (see gotcha 6), but each tap is a full rerun and redraw. A
+  Leaflet/MapLibre Streamlit custom component would give instant client-side map updates.
+  Tapping is only verified with headless-Chrome mouse events, not on a real touchscreen; check the grey dots
+  (16 px) are easy enough to hit with a finger on the stand hardware.
   The current plotly map re-sends about 480 KB of GeoJSON on every rerun; it feels fine locally, untested on
   conference wifi. Simplifying geometry further in `precompute.py` (tolerance is 60 m) is the cheap lever.
 - Offline stand: `MINI_OFFLINE=1` swaps to a plain background but is untested; the Google Fonts and Plotly
