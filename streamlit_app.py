@@ -13,7 +13,6 @@ import streamlit as st
 
 from core import (
     MAX_NEW_SITES,
-    MODES,
     OBJECTIVES,
     label,
     load_data,
@@ -59,18 +58,34 @@ st.markdown(
 
 data = load_data()
 DEFAULT_CUTOFF = {"car": 45, "pt": 90}
+# (map view, travel mode) -> sidebar label
+MAP_CHOICES = {
+    ("time", "car"): "Journey time by car",
+    ("cutoff", "car"): "Who is too far by car",
+    ("time", "pt"): "Journey time by public transport",
+    ("cutoff", "pt"): "Who is too far by public transport",
+}
 
 st.session_state.setdefault("mode", "car")
 st.session_state.setdefault("cutoff", DEFAULT_CUTOFF["car"])
+# The cutoff slider is hidden in the journey-time views; re-assigning stops Streamlit
+# discarding its value while it isn't drawn (the metrics and optimiser still use it)
+st.session_state.cutoff = st.session_state.cutoff
 st.session_state.setdefault("view", "cutoff")
+st.session_state.setdefault("map_choice", ("cutoff", "car"))
 st.session_state.setdefault("new_sites", [])
 # Bumped after each map tap so the chart remounts with no point left selected
 st.session_state.setdefault("map_taps", 0)
 
 
-def on_mode_change():
-    st.session_state.cutoff = DEFAULT_CUTOFF[st.session_state.mode or "car"]
-    st.session_state.optimiser_ran = False
+def on_map_choice_change():
+    """Switching travel mode resets the cutoff; switching only the map view keeps it."""
+    view, mode = st.session_state.map_choice
+    st.session_state.view = view
+    if mode != st.session_state.mode:
+        st.session_state.mode = mode
+        st.session_state.cutoff = DEFAULT_CUTOFF[mode]
+        st.session_state.optimiser_ran = False
 
 
 def clear_sites():
@@ -118,27 +133,17 @@ tab_build, tab_opt = st.tabs(["1 · You choose", "2 · Watch the optimiser"])
 
 # Controls are drawn first (they write session state), then the maps read it
 with st.sidebar:
-    st.subheader("Journeys")
-    st.segmented_control(
-        "How do people travel?",
-        list(MODES),
-        format_func=MODES.get,
-        key="mode",
-        on_change=on_mode_change,
-        selection_mode="single",
-    )
-    st.slider("How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff")
-
-    st.divider()
-
     st.subheader("Map")
-    st.segmented_control(
+    st.radio(
         "Map shows",
-        ["cutoff", "time"],
-        key="view",
-        selection_mode="single",
-        format_func={"cutoff": "Who is too far", "time": "Journey time"}.get,
+        list(MAP_CHOICES),
+        format_func=MAP_CHOICES.get,
+        key="map_choice",
+        on_change=on_map_choice_change,
+        help="Public transport means buses and walking only - trains are not included in the data.",
     )
+    if st.session_state.view == "cutoff":
+        st.slider("How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff")
 
 # ---------------------------------------------------------------- tab 1
 with tab_build:
@@ -187,14 +192,21 @@ with tab_build:
             icon=":material/casino:",
         )
 
-    mode = st.session_state.mode or "car"
+    mode = st.session_state.mode
     cutoff = st.session_state.cutoff
-    view = st.session_state.view or "cutoff"
+    view = st.session_state.view
     new_sites = tuple(sorted(st.session_state.new_sites[:MAX_NEW_SITES]))
     has_new = bool(new_sites)
 
-    today = summarise(data, nearest_time(data, mode), cutoff)
-    now = summarise(data, nearest_time(data, mode, new_sites), cutoff)
+    today_times = nearest_time(data, mode)
+    now_times = nearest_time(data, mode, new_sites)
+    today = summarise(data, today_times, cutoff)
+    now = summarise(data, now_times, cutoff)
+    # Anyone whose nearest centre is now quicker, whatever the time limit
+    quicker = now_times < today_times
+    improved = float(data.demand[quicker].sum())
+    saved = (today_times - now_times)[quicker]
+    avg_saved = float((saved * data.demand[quicker]).sum() / improved) if improved else 0.0
 
     with ctrl_col:
         with st.container(key="headline"):
@@ -214,7 +226,25 @@ with tab_build:
             f"{now['worst']:.0f} min",
             **delta_kwargs(now["worst"] - today["worst"], " min", 0, has_new),
         )
-        if not has_new:
+        if has_new:
+            m3, m4 = st.columns(2)
+            m3.metric(
+                "People helped",
+                f"{improved:,.0f}",
+                delta=f"{improved / data.demand.sum():.1%} of everyone",
+                delta_color="off",
+                delta_arrow="off",
+                help=(
+                    "People aged 50-84 whose nearest centre is now quicker to reach, by any amount, "
+                    "and what share of all people aged 50-84 that is."
+                ),
+            )
+            m4.metric(
+                "Average time saved",
+                f"{avg_saved:.1f} min",
+                help="Average minutes saved, counting only the people helped.",
+            )
+        else:
             st.caption("Showing today's network. Tap a grey dot or a town to add a centre.")
 
     with map_col:

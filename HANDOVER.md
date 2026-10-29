@@ -98,7 +98,11 @@ HSMA logo (`st.logo`), tabs restyled as a sticky navbar titled "Geographic Playg
 Space Grotesk body at 18px weight 300, teal call-to-action button, muted-red `st.info`, and the QR + HSMA footer.
 `style.css` is the DES mini's file with this app's rules at the bottom; keep the two in step where possible.
 
-Travel mode, cutoff and map view moved to the sidebar (as the DES mini keeps its settings there). The town pills,
+Travel mode, cutoff and map view moved to the sidebar (as the DES mini keeps its settings there). Mode and view
+are one four-option radio ("Journey time by car", "Who is too far by public transport", ...); its help hover
+notes that public transport is buses and walking only, no trains. Changing mode resets the cutoff to that mode's
+default; changing only the view keeps it. The cutoff slider shows only in the "too far" views, but its value is
+kept while hidden (the headline metric and optimiser still use it). The town pills,
 "Start again" / "Surprise me" and the metrics stay next to the map, because picking towns is the main action.
 
 To confirm: the footer links in `streamlit_app.py` (`FULL_PLAYGROUND_URL`, `CODE_URL`) point at the Bergam0t
