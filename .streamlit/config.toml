@@ -4,6 +4,10 @@ font = "Space Grotesk:https://fonts.googleapis.com/css2?family=Space+Grotesk:wgh
 backgroundColor = "#1b1a1a"
 primaryColor = "#1fb1b9"
 
+[theme.sidebar]
+backgroundColor = "#550000"
+primaryColor = "#ffffff"
+
 [client]
 toolbarMode = "viewer"
 

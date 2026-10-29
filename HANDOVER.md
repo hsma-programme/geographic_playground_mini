@@ -71,17 +71,37 @@ Chrome, opens `http://localhost:8599/` and runs steps:
 Steps: `wait:SECONDS`, `click:TEXT` (exact then substring match on buttons/tabs/pills), `shot:NAME`, `js:EXPR`.
 It saves `out/run1_NAME.png`. Notes: `--virtual-time-budget` screenshots do NOT work (they capture only
 Streamlit's loading skeleton); allow roughly 12 seconds for first load; the window is 1500 wide and 2600 tall so
-the whole page shows. Chrome's path is hard-coded for Windows. Add `out/` and `*_profile/` to `.gitignore`
-before using it.
+the whole page shows. Chrome's path is hard-coded for Windows. `out/` and `*_profile/` are git-ignored.
 
-## Suggested next steps (none started)
+Two quirks seen while doing the branding:
+- Pass the output prefix as an absolute path (`C:/geographic_playground_mini/out/run1`). With a relative one,
+  Chrome never opened its debugging port and the script failed with `UnboundLocalError: ... 'tabs'`.
+- Screenshots often show the sidebar shifted left with its contents clipped. This is a capture artifact (the
+  sidebar caught mid-transition): the DOM geometry is correct, later shots render it fine, and the DES mini shows
+  the same thing. Don't "fix" it in CSS.
+
+## Branding and layout (done)
+
+Layout and theme copied from the DES mini so the two stand apps look like a pair: maroon sidebar with the
+HSMA logo (`st.logo`), tabs restyled as a sticky navbar titled "Geographic Playground" in the HSMA Display font
+(`resources/fonts/hsma-display/`, embedded as base64; its source and build scripts live in the DES mini repo),
+Space Grotesk body at 18px weight 300, teal call-to-action button, muted-red `st.info`, and the QR + HSMA footer.
+`style.css` is the DES mini's file with this app's rules at the bottom; keep the two in step where possible.
+
+Travel mode, cutoff and map view moved to the sidebar (as the DES mini keeps its settings there). The town pills,
+"Start again" / "Surprise me" and the metrics stay next to the map, because picking towns is the main action.
+
+To confirm: the footer links in `streamlit_app.py` (`FULL_PLAYGROUND_URL`, `CODE_URL`) point at the Bergam0t
+GitHub repos, since the full playground has no known deployed URL. The DES mini links to `hsma-programme/...`
+instead; update both if these move.
+
+## Suggested next steps
 
 Decisions the user has not made yet:
 1. **Reveal order on tab 2.** The "best depends on what you ask" cards and maps appear immediately under the
    animation, spoiling it. Options: show them only after the animation's final frame (post a message from the
    iframe is awkward; simplest is a "Show me the results" button), or leave as is for presenter-led use.
-2. **Branding.** HSMA footer and QR code as in the DES mini (`resources/hsma_qr.png` and the logo are already
-   copied; nothing uses them yet). Link back to the full playground.
+2. ~~Branding~~ done, see above.
 3. **Attract mode.** Idle screen that loops the animation to draw people in from across the room.
 
 Ideas from the original plan that were left out (see the earlier suggestions): a live "what did other visitors

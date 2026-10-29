@@ -5,6 +5,7 @@ Tab 2: watch a computer try every combination, then see that the "best" answer
 depends on what you ask it to optimise.
 """
 
+import base64
 import random
 from pathlib import Path
 
@@ -25,8 +26,36 @@ from core import (
 from animation import render_optimiser_animation
 from figures import static_time_map, travel_map
 
-st.set_page_config(page_title="Where should the next centre go?", layout="wide")
+HSMA_URL = "https://hsma.co.uk"
+FULL_PLAYGROUND_URL = "https://github.com/Bergam0t/geographic_or_ds_playground"
+CODE_URL = "https://github.com/Bergam0t/geographic_playground_mini"
+
+st.set_page_config(
+    page_title="Geographic Playground",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+st.logo(
+    "resources/Chalky HSMA-07-wide white logo tall with tagline - new tagline.png",
+    size="large",
+    link=HSMA_URL,
+)
 st.markdown(f"<style>{Path('style.css').read_text()}</style>", unsafe_allow_html=True)
+
+# HSMA display font for the navbar title and big button. Embedded as base64 so it
+# loads without needing static file serving.
+font_b64 = base64.b64encode(
+    Path("resources/fonts/hsma-display/HSMADisplay-Regular.woff2").read_bytes()
+).decode()
+st.markdown(
+    f"""<style>
+    @font-face {{
+        font-family: "HSMA Display";
+        src: url(data:font/woff2;base64,{font_b64}) format("woff2");
+    }}
+    </style>""",
+    unsafe_allow_html=True,
+)
 
 data = load_data()
 DEFAULT_CUTOFF = {"car": 45, "pt": 90}
@@ -66,28 +95,50 @@ def on_sites_change():
     st.session_state.optimiser_ran = False
 
 
-st.title("Where should the next diagnostic centre go?")
-st.markdown(
-    "Devon has **4 community diagnostic centres**. You have budget for more. "
-    "Pick where they go, and see who still has a long journey."
-)
-
 tab_build, tab_opt = st.tabs(["1 · You choose", "2 · Watch the optimiser"])
+
+# Controls are drawn first (they write session state), then the maps read it
+with st.sidebar:
+    st.subheader("Journeys")
+    st.segmented_control(
+        "How do people travel?",
+        list(MODES),
+        format_func=MODES.get,
+        key="mode",
+        on_change=on_mode_change,
+        selection_mode="single",
+    )
+    st.slider("How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff")
+
+    st.divider()
+
+    st.subheader("Map")
+    st.segmented_control(
+        "Map shows",
+        ["cutoff", "time"],
+        key="view",
+        selection_mode="single",
+        format_func={"cutoff": "Who is too far", "time": "Journey time"}.get,
+    )
 
 # ---------------------------------------------------------------- tab 1
 with tab_build:
+    st.markdown(
+        """
+        ### Where should the next diagnostic centre go?
+
+        Devon has **4 community diagnostic centres**, and **you have budget for up to 3 more**.
+        Tap a town to open a centre there, and watch the red "too far" areas shrink.
+
+        This is called *location optimisation* - using a computer to
+        <span style="color:#ffe600;font-weight:700">test where a service should go before anything is built</span>.
+        """,
+        unsafe_allow_html=True,
+    )
+
     map_col, ctrl_col = st.columns([3, 2], gap="large")
 
-    # Controls are drawn first (they write session state), then the map reads it
     with ctrl_col:
-        st.segmented_control(
-            "How do people travel?",
-            list(MODES),
-            format_func=MODES.get,
-            key="mode",
-            on_change=on_mode_change,
-            selection_mode="single",
-        )
         st.pills(
             f"Add up to {MAX_NEW_SITES} new centres",
             data.candidates,
@@ -102,19 +153,18 @@ with tab_build:
             )
         b1, b2 = st.columns(2)
         b1.button(
-            "Start again", on_click=clear_sites, width="stretch", icon=":material/restart_alt:"
+            "Start again",
+            key="quick_clear",
+            on_click=clear_sites,
+            width="stretch",
+            icon=":material/restart_alt:",
         )
         b2.button(
-            "Surprise me", on_click=surprise_me, width="stretch", icon=":material/casino:"
-        )
-
-        st.slider("How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff")
-        st.segmented_control(
-            "Map shows",
-            ["cutoff", "time"],
-            key="view",
-            selection_mode="single",
-            format_func={"cutoff": "Who is too far", "time": "Journey time"}.get,
+            "Surprise me",
+            key="quick_surprise",
+            on_click=surprise_me,
+            width="stretch",
+            icon=":material/casino:",
         )
 
     mode = st.session_state.mode or "car"
@@ -172,7 +222,7 @@ with tab_opt:
             f"There are **{n_total:,}** ways to place {n_new} new "
             f"centre{'s' if n_new > 1 else ''} - a computer can try them all."
         )
-        if st.button("Run the optimiser", icon=":material/rocket_launch:", type="primary"):
+        if st.button("Run the optimiser", key="run_optimiser", icon=":material/rocket_launch:"):
             st.session_state.optimiser_ran = True
 
         if st.session_state.get("optimiser_ran"):
@@ -227,22 +277,42 @@ with tab_opt:
 
             st.subheader("Why computers?")
             n_cand = len(data.candidates)
-            for col, (n, text) in zip(
-                st.columns(4),
-                [
+            boxes = "".join(
+                f"<div class='result-line'><div class='big-number'>{n:,}</div>"
+                f"<div class='big-number-label'>{text}</div></div>"
+                for n, text in [
                     (n_combinations(n_cand, 1), "ways to add 1 centre"),
                     (n_combinations(n_cand, 2), "ways to add 2"),
                     (n_combinations(n_cand, 3), "ways to add 3"),
                     (n_combinations(100, 5), "ways to pick 5 from 100 sites"),
-                ],
-            ):
-                col.markdown(
-                    f"<div class='big-number'>{n:,}</div>"
-                    f"<div class='big-number-label'>{text}</div>",
-                    unsafe_allow_html=True,
-                )
+                ]
+            )
+            st.markdown(f"<div class='result-box'>{boxes}</div>", unsafe_allow_html=True)
             st.caption(
                 "Real location problems are far bigger than this one, and have many "
                 "competing goals. Optimisation software searches them for you and shows "
                 "the trade-offs."
             )
+
+# ---------------------------------------------------------------- footer
+st.divider()
+
+footer_qr, footer_text = st.columns([1, 5], vertical_alignment="center")
+
+footer_qr.image("resources/hsma_qr.png", width=130)
+
+footer_text.markdown(
+    f"""
+    **Want to learn how to build tools like this?**
+
+    HSMA trains people working in health and social care in modelling, geographic
+    analysis and data science. Scan the code or visit the
+    [HSMA website]({HSMA_URL}) to find out more, try the
+    [full geographic playground]({FULL_PLAYGROUND_URL}), or
+    [explore the code for this app]({CODE_URL}).
+    """
+)
+footer_text.caption(
+    "Population and deprivation data from the ONS (Open Government Licence). "
+    "Travel times calculated from OpenStreetMap data (© OpenStreetMap contributors)."
+)
