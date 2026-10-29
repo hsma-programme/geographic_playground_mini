@@ -62,8 +62,10 @@ DEFAULT_CUTOFF = {"car": 45, "pt": 90}
 MAP_CHOICES = {
     ("time", "car"): "Journey time by car",
     ("cutoff", "car"): "Who is too far by car",
+    ("nearest", "car"): "Closest centre by car",
     ("time", "pt"): "Journey time by public transport",
     ("cutoff", "pt"): "Who is too far by public transport",
+    ("nearest", "pt"): "Closest centre by public transport",
 }
 
 st.session_state.setdefault("mode", "car")
@@ -72,15 +74,19 @@ st.session_state.setdefault("cutoff", DEFAULT_CUTOFF["car"])
 # discarding its value while it isn't drawn (the metrics and optimiser still use it)
 st.session_state.cutoff = st.session_state.cutoff
 st.session_state.setdefault("view", "cutoff")
-st.session_state.setdefault("map_choice", ("cutoff", "car"))
+# One radio per travel mode; choosing in one clears the other
+st.session_state.setdefault("map_choice_car", ("cutoff", "car"))
+st.session_state.setdefault("map_choice_pt", None)
 st.session_state.setdefault("new_sites", [])
 # Bumped after each map tap so the chart remounts with no point left selected
 st.session_state.setdefault("map_taps", 0)
 
 
-def on_map_choice_change():
+def on_map_choice_change(mode):
     """Switching travel mode resets the cutoff; switching only the map view keeps it."""
-    view, mode = st.session_state.map_choice
+    other = "pt" if mode == "car" else "car"
+    st.session_state[f"map_choice_{other}"] = None
+    view, _ = st.session_state[f"map_choice_{mode}"]
     st.session_state.view = view
     if mode != st.session_state.mode:
         st.session_state.mode = mode
@@ -133,15 +139,26 @@ tab_build, tab_opt = st.tabs(["1 · You choose", "2 · Watch the optimiser"])
 
 # Controls are drawn first (they write session state), then the maps read it
 with st.sidebar:
-    st.subheader("Map")
-    st.radio(
-        "Map shows",
-        list(MAP_CHOICES),
-        format_func=MAP_CHOICES.get,
-        key="map_choice",
-        on_change=on_map_choice_change,
-        help="Public transport means buses and walking only - trains are not included in the data.",
-    )
+    for radio_mode, heading, heading_help in [
+        ("car", "By car", None),
+        (
+            "pt",
+            "By public transport",
+            "Public transport means buses and walking only - trains are not included in the data.",
+        ),
+    ]:
+        if radio_mode == "pt":
+            st.divider()
+        st.subheader(heading, help=heading_help)
+        st.radio(
+            f"Map shows ({heading.lower()})",
+            [c for c in MAP_CHOICES if c[1] == radio_mode],
+            format_func=MAP_CHOICES.get,
+            key=f"map_choice_{radio_mode}",
+            on_change=on_map_choice_change,
+            args=(radio_mode,),
+            label_visibility="collapsed",
+        )
     if st.session_state.view == "cutoff":
         st.slider("How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff")
 
@@ -195,7 +212,9 @@ with tab_build:
     mode = st.session_state.mode
     cutoff = st.session_state.cutoff
     view = st.session_state.view
-    new_sites = tuple(sorted(st.session_state.new_sites[:MAX_NEW_SITES]))
+    # Tap order sets each new centre's colour on the 'closest site' map; sorted for everything else
+    tapped_sites = tuple(st.session_state.new_sites[:MAX_NEW_SITES])
+    new_sites = tuple(sorted(tapped_sites))
     has_new = bool(new_sites)
 
     today_times = nearest_time(data, mode)
@@ -249,7 +268,7 @@ with tab_build:
 
     with map_col:
         st.plotly_chart(
-            travel_map(data, mode, new_sites, cutoff, view, selectable=True),
+            travel_map(data, mode, tapped_sites, cutoff, view, selectable=True),
             key=f"main_map_{st.session_state.map_taps}",
             width="stretch",
             config={"displayModeBar": False},
@@ -258,6 +277,11 @@ with tab_build:
         )
         if view == "time":
             st.caption("Hover over an area to see its journey time. Tap a dot to add or remove a centre.")
+        elif view == "nearest":
+            st.caption(
+                "Each colour is the area closest to one centre - warm colours are your new ones. "
+                "Hover over an area to see which. Tap a dot to add or remove a centre."
+            )
         else:
             st.caption(
                 f"Red areas are more than {cutoff} minutes from the nearest centre. "

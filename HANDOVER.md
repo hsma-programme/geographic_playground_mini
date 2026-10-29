@@ -99,7 +99,9 @@ Space Grotesk body at 18px weight 300, teal call-to-action button, muted-red `st
 `style.css` is the DES mini's file with this app's rules at the bottom; keep the two in step where possible.
 
 Travel mode, cutoff and map view moved to the sidebar (as the DES mini keeps its settings there). Mode and view
-are one four-option radio ("Journey time by car", "Who is too far by public transport", ...); its help hover
+are two three-option radios under "By car" and "By public transport" subheaders ("Journey time by car", "Who
+is too far by public transport", "Closest centre by car", ...); choosing in one clears the other. "Closest centre" colours each area by its nearest centre: cool colours for the existing four, warm for new
+ones, in the order they were tapped (the map gets the unsorted `tapped_sites`). The public transport subheader's help hover
 notes that public transport is buses and walking only, no trains. Changing mode resets the cutoff to that mode's
 default; changing only the view keeps it. The cutoff slider shows only in the "too far" views, but its value is
 kept while hidden (the headline metric and optimiser still use it). The town pills,

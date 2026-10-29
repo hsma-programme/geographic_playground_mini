@@ -79,6 +79,12 @@ def nearest_time(data: Data, mode: str, new_sites=()) -> np.ndarray:
     return data.matrices[mode][:, cols].min(axis=1)
 
 
+def nearest_site(data: Data, mode: str, new_sites=()) -> np.ndarray:
+    """Position in existing + new_sites of each area's nearest centre."""
+    cols = list(data.existing) + list(new_sites)
+    return data.matrices[mode][:, cols].argmin(axis=1)
+
+
 def summarise(data: Data, times: np.ndarray, cutoff: float) -> dict:
     w = data.demand
     deprived = data.imd <= DEPRIVED_MAX_DECILE

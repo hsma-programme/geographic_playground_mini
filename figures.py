@@ -5,7 +5,7 @@ import os
 import numpy as np
 import plotly.graph_objects as go
 
-from core import Data, nearest_time
+from core import Data, nearest_site, nearest_time
 
 # Basemap tiles need internet. Set MINI_OFFLINE=1 on a stand laptop with no wifi
 # to fall back to a plain background (the area outlines still read fine).
@@ -18,6 +18,10 @@ NEW_SITE = "#ffe600"  # yellow stands out against both the blue/red and journey-
 TIME_COLORSCALE = [[0, "#1fb1b9"], [0.45, "#f6e8a4"], [1, "#b2182b"]]
 # Colour scale tops out here so car and public transport maps each use their range
 TIME_MAX = {"car": 60, "pt": 120}
+# 'Closest site' view: cool colours for today's centres, warm for new ones, so the
+# area a new centre takes over stands out (no red, which means "too far" elsewhere)
+EXISTING_COLOURS = ["#4e79a7", "#59a14f", "#76b7b2", "#b07aa1"]
+NEW_COLOURS = ["#f28e2b", "#edc948", "#ff9da7"]
 
 
 def _site_traces(data: Data, new_sites, selectable=False):
@@ -59,12 +63,31 @@ def _site_traces(data: Data, new_sites, selectable=False):
 
 
 def travel_map(data: Data, mode, new_sites, cutoff, view, height=640, selectable=False) -> go.Figure:
-    """The interactive map: binary 'beyond the cutoff' view or a time gradient.
+    """The interactive map: binary 'beyond the cutoff' view, a time gradient, or
+    each area coloured by its closest centre.
 
     selectable=True sizes and labels the candidate sites for tapping.
     """
     times = nearest_time(data, mode, new_sites)
-    if view == "cutoff":
+    if view == "nearest":
+        sites = list(data.existing) + list(new_sites)
+        colours = [EXISTING_COLOURS[i % len(EXISTING_COLOURS)] for i in range(len(data.existing))]
+        colours += NEW_COLOURS[: len(new_sites)]
+        # Step colour scale: each whole number z maps to one flat band of colour
+        k = len(colours)
+        scale = [[edge / k, c] for i, c in enumerate(colours) for edge in (i, i + 1)]
+        nearest = nearest_site(data, mode, new_sites)
+        names = np.array([data.short_names[i] for i in sites])[nearest]
+        choropleth = go.Choroplethmap(
+            geojson=data.geojson, locations=np.arange(len(nearest)), z=nearest,
+            zmin=-0.5, zmax=k - 0.5, colorscale=scale, showscale=False,
+            marker=dict(opacity=0.75, line_width=0),
+            selected=dict(marker=dict(opacity=0.75)),
+            unselected=dict(marker=dict(opacity=0.75)),
+            customdata=np.column_stack([names, times.round(0).astype(int)]),
+            hovertemplate="Closest centre: %{customdata[0]}<br>%{customdata[1]} minutes<extra></extra>",
+        )
+    elif view == "cutoff":
         z = (times > cutoff).astype(int)
         choropleth = go.Choroplethmap(
             geojson=data.geojson, locations=np.arange(len(z)), z=z,
