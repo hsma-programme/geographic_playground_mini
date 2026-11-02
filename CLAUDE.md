@@ -1,13 +1,13 @@
 # Audience and purpose
 
-- A one-page, two-tab demo for a conference stand, companion to the full geographic optimisation playground (`C:\geographic_or_ds_playground`, a 45-minute teaching app). Modelled on `C:\Users\Sammi\des_playground_mini`.
+- A one-page, three-tab demo for a conference stand, companion to the full geographic optimisation playground (`C:\geographic_or_ds_playground`, a 45-minute teaching app). Modelled on `C:\Users\Sammi\des_playground_mini`.
 - Visitors are walk-ups, mostly NHS managers and leaders, who know nothing about location optimisation. A visit is 2-5 minutes, often with a presenter. Plain English, no jargon, large readable type, nothing that needs explaining before the first click.
 - The two "wow" moments are the map where adding a centre shrinks the red "too far" areas, and the optimiser visibly trying every combination. The one teaching point: the best site depends on the question you ask. Keep new features in service of those, not of breadth.
 - See `HANDOVER.md` for current state, open decisions and next steps.
 
 # How the app works
 
-- No optimiser runs at runtime. With 18 sites (4 existing, 14 candidates) every combination is scored directly in numpy in `core.py`. lokigi is not a dependency; don't imply in copy that the app runs it.
+- No optimiser runs at runtime. With 18 sites (4 existing, 14 candidates) every combination is scored directly in numpy in `core.py`. lokigi (>=0.10.0) is a dependency, but only `pareto.py` uses it, to find the unbeaten options and draw the radar/line charts on tab 3. Don't imply in copy that lokigi searches or optimises at runtime. It pulls in numba, geopandas and pysal, so installs are large and the first import is slow (about 18 s cold, 4 s warm on the dev laptop).
 - `data/` is generated from `raw/` by `scripts/precompute.py` (`uv run --group precompute python scripts/precompute.py`) and committed, so the app runs without geopandas. Change inputs in `raw/`, then regenerate.
 - Metrics are people aged 50-84. IMD decile 1 = most deprived.
 

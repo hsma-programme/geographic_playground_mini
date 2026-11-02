@@ -24,6 +24,7 @@ the animation advancing, the results section. Not verified: touch input, offline
 | `streamlit_app.py` | The whole UI: tab 1 (build your network) and tab 2 (optimiser + results) |
 | `core.py` | Data loading (`load_data`), scoring (`nearest_time`, `summarise`, `score_all_combinations`), objectives, ranking |
 | `figures.py` | Plotly maps: interactive `travel_map`, compact `static_time_map` |
+| `pareto.py` | Tab 3 ("Weigh it up"): builds a lokigi `SiteSolutionSet` from `score_all_combinations`, finds the options no other beats on every chosen question, draws lokigi's interactive radar / parallel-lines chart plus a yellow dashed "Your pick" trace |
 | `animation.py` | The optimiser animation: custom HTML + JS timer inside `components.html` |
 | `scripts/precompute.py` | `raw/` to `data/` (simplified GeoJSON, npz of matrices/demand/IMD, sites.csv) |
 | `scripts/cdp_drive.py` | Headless-Chrome driver for UI testing (see below) |
@@ -42,6 +43,22 @@ Key design decisions:
   180 minutes. The cutoff default switches to 90 minutes for public transport (`DEFAULT_CUTOFF`).
 - The metrics count **people aged 50-84** (the full app's demand definition). Copy says so on the headline.
 - Wording note from the full app: IMD decile 1 = most deprived.
+
+## Tab 3: "Weigh it up" (added, uncommitted)
+
+Visitors pick which of the four questions matter (pills, at least two). The page shows how many options are not
+beaten on every chosen question (1-12 in the cases checked), whether their pick is one of them, and a lokigi
+interactive radar ("Shapes", needs 3+ questions) or parallel-lines chart ("Lines"). The chart opens with only
+the best option per question plus the visitor's pick visible; the rest are greyed in the legend.
+lokigi is now a runtime dependency (`lokigi>=0.10.0`); see CLAUDE.md for the install-size and import-time cost.
+Visitor copy avoids the words "Pareto" and "dominated".
+
+Verified in headless Chrome (car, today, 2 centres, 4 / 3 / 2 / 1 questions; radar, lines and the
+fewer-than-two warning). Not verified: public transport on this tab through the UI (the sidebar click did not
+register in the driver; front sizes for it were only computed offline), 3 centres through the UI at the final
+layout, the 2036 demand, hover and legend taps (only static screenshots), touch input, narrow screens, and
+load time on a stand laptop. The radar's plot area is shrunk (`polar.domain` in `pareto.py`) so the spoke
+labels are not clipped; the last margin tweak was not re-screenshotted.
 
 ## Gotchas learned the hard way
 

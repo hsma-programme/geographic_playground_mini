@@ -23,6 +23,7 @@ from core import (
     score_all_combinations,
     summarise,
 )
+import pareto
 from animation import render_optimiser_animation
 from figures import static_time_map, travel_map
 
@@ -137,7 +138,9 @@ def on_map_click():
     st.session_state.optimiser_ran = False
 
 
-tab_build, tab_opt = st.tabs(["1 · You choose", "2 · Watch the optimiser"])
+tab_build, tab_opt, tab_trade = st.tabs(
+    ["1 · You choose", "2 · Watch the optimiser", "3 · Weigh it up"]
+)
 
 # Controls are drawn first (they write session state), then the maps read it
 with st.sidebar:
@@ -399,6 +402,70 @@ with tab_opt:
                 "the trade-offs."
             )
 
+# ---------------------------------------------------------------- tab 3
+with tab_trade:
+    if not has_new:
+        st.info("Choose at least one new centre on the first tab, then come back here.")
+    else:
+        st.markdown(
+            """
+            ### There's rarely one best answer
+
+            Most ways of placing your centres can be ruled out, because another way is
+            better on **every** question you care about. The few left each win on
+            something, so choosing between them is a judgement for people, not computers.
+            """
+        )
+        keys = st.pills(
+            "Which questions matter to you?",
+            list(OBJECTIVES),
+            format_func=lambda k: OBJECTIVES[k][0],
+            selection_mode="multi",
+            default=list(OBJECTIVES),
+            key="pareto_keys",
+        )
+        if len(keys) < 2:
+            st.warning("Pick at least two questions to weigh them against each other.")
+        else:
+            trade_scores = score_all_combinations(mode, len(new_sites), float(cutoff), demand)
+            ss = pareto.solution_set(data, trade_scores, keys, cutoff)
+            n_front, n_total, beater = pareto.verdict(ss, keys, new_sites)
+            st.markdown(
+                f"<div class='result-box'><div class='result-line'>"
+                f"<div class='big-number'>{n_front:,}</div>"
+                f"<div class='big-number-label'>of {n_total:,} options are not beaten on every "
+                f"question you picked</div></div></div>",
+                unsafe_allow_html=True,
+            )
+            if beater is None:
+                st.success(f"Your pick, {label(data, new_sites)}, is one of them. 🏆")
+            else:
+                st.warning(
+                    f"**{beater}** beats your pick, {label(data, new_sites)}, "
+                    "on every question you picked."
+                )
+
+            can_radar = len(keys) >= 3
+            if can_radar:
+                view = st.segmented_control(
+                    "Show as", ["Shapes", "Lines"], default="Shapes", key="pareto_view"
+                ) or "Shapes"
+            else:
+                view = "Lines"
+                st.caption("Shapes need at least three questions, so this is shown as lines.")
+            kind = "radar" if view == "Shapes" else "lines"
+            st.plotly_chart(
+                pareto.trade_off_chart(ss, keys, new_sites, kind),
+                key=f"pareto_{kind}",
+                width="stretch",
+                config={"displayModeBar": False},
+            )
+            st.caption(
+                ("Further from the centre" if kind == "radar" else "Higher up")
+                + " is always better. Each colour is an option nothing else beats on every "
+                "question; the yellow dashed line is your pick. Tap a name to show or hide "
+                "it. A bigger shape is not automatically better, so compare question by question."
+            )
 # ---------------------------------------------------------------- footer
 st.divider()
 
@@ -420,5 +487,7 @@ footer_text.markdown(
 footer_text.caption(
     "Population and deprivation data from the ONS (Open Government Licence); "
     "the 2036 population is an illustrative projection made for teaching. "
-    "Travel times calculated from OpenStreetMap data (© OpenStreetMap contributors)."
+    "Travel times calculated from OpenStreetMap data (© OpenStreetMap contributors). "
+    "Trade-off charts drawn with [lokigi](https://github.com/hsma-tools/lokigi), "
+    "HSMA's open-source location package."
 )
