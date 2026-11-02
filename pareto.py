@@ -267,7 +267,11 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
 
     def rank(q):
         col = ss.solution_df[q.column]
-        return int(((col > pick[q.column]) if q.higher_better else (col < pick[q.column])).sum()) + 1
+        n = int(((col > pick[q.column]) if q.higher_better else (col < pick[q.column])).sum()) + 1
+        ties = int((col == pick[q.column]).sum()) - 1
+        return f"{n} of {n_total:,}" + (
+            f", tied with {ties} other option{'s' if ties > 1 else ''}" if ties else ""
+        )
 
     pick_wins = ss.wins.get(int(pick["option_id"]))
     pick_name = _with_wins(pick["option_name"], pick_wins)
@@ -275,7 +279,7 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
     legend_name = f"{YOUR_PICK} ({pick['option_name']}" + (f"; wins on {', '.join(pick_wins)})" if pick_wins else ")")
     hover = [
         f"<b>{YOUR_PICK}: {pick_name}</b><br>{q.lines_title}: {q.fmt(pick[q.column])}<br>"
-        f"Rank {rank(q)} of {n_total:,}"
+        f"Rank {rank(q)}"
         for q in qs
     ]
     style = dict(

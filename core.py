@@ -163,9 +163,15 @@ def label(data: Data, sites) -> str:
 
 
 def rank_of(scores: pd.DataFrame, sites, objective: str) -> int:
-    """1-based rank of a combination on one objective (1 = best)."""
-    ordered = scores.sort_values(objective, kind="stable")["sites"].tolist()
-    return ordered.index(tuple(sorted(sites))) + 1
+    """1-based rank of a combination on one objective (1 = best; tied options share a rank)."""
+    value = scores.loc[[s == tuple(sorted(sites)) for s in scores["sites"]], objective].iloc[0]
+    return int((scores[objective] < value).sum()) + 1
+
+
+def n_tied(scores: pd.DataFrame, sites, objective: str) -> int:
+    """How many other combinations score exactly the same as this one on one objective."""
+    value = scores.loc[[s == tuple(sorted(sites)) for s in scores["sites"]], objective].iloc[0]
+    return int((scores[objective] == value).sum()) - 1
 
 
 def n_combinations(n_candidates: int, n_new: int) -> int:

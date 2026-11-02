@@ -147,7 +147,7 @@ def travel_map(
         saved = nearest_time(data, mode) - times
         idx = np.flatnonzero(saved > 0.5)
         choropleth = go.Choroplethmap(
-            geojson=data.geojson, locations=idx, z=saved[idx].round(1),
+            geojson=data.geojson, locations=idx, z=saved[idx],
             zmin=0, zmax=GAIN_MAX[mode], colorscale=GAIN_COLORSCALE,
             colorbar=_colorbar("minutes saved"),
             marker=dict(opacity=0.8, line_width=0),
@@ -160,7 +160,7 @@ def travel_map(
         deprived = view == "deprived"
         idx = np.flatnonzero(data.imd <= DEPRIVED_MAX_DECILE) if deprived else np.arange(len(times))
         choropleth = go.Choroplethmap(
-            geojson=data.geojson, locations=idx, z=times[idx].round(1),
+            geojson=data.geojson, locations=idx, z=times[idx],
             zmin=0, zmax=TIME_MAX[mode], colorscale=TIME_COLORSCALE,
             colorbar=_colorbar("minutes"),
             marker=dict(opacity=0.75, line_width=0),

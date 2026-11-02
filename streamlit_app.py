@@ -20,6 +20,7 @@ from core import (
     label,
     load_data,
     n_combinations,
+    n_tied,
     nearest_shares,
     nearest_time,
     rank_of,
@@ -159,6 +160,10 @@ def rank_colour(rank, total):
     """Green for the best rank, through amber, to red for the worst."""
     frac = (rank - 1) / max(total - 1, 1)
     return f"hsl({120 * (1 - frac):.0f}, 70%, 55%)"
+
+
+def other_options(n):
+    return f"{n} other option{'s' if n > 1 else ''}"
 
 
 ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"]
@@ -594,6 +599,7 @@ with tab_opt:
                 "The animation scored every option on *average journey time*. "
                 "Ask a different question and a different place can win."
             )
+            st.caption(f"All the questions and maps below use journey times {pareto.MODE_NAME[opt_mode]}.")
             keys = list(OBJECTIVES)
             # The cutoff only matters to the 'far away' question, so it is named only there
             titles = {k: OBJECTIVES[k][0] for k in keys} | {
@@ -603,18 +609,26 @@ with tab_opt:
                 title, blurb = titles[key], OBJECTIVES[key][2]
                 winner = scores.loc[scores[key].idxmin()]
                 yours = rank_of(scores, new_sites, key)
+                # Ties are exact and common on the longest journey, so say so rather than pick one
+                winner_ties = n_tied(scores, winner["sites"], key)
                 with col.container(border=True):
                     st.caption(title)
                     st.markdown(
                         f"<div class='champion-name'>{label(data, winner['sites'])}</div>",
                         unsafe_allow_html=True,
                     )
+                    if winner_ties:
+                        st.caption(f"Tied for best with {other_options(winner_ties)}")
                     st.markdown(blurb)
+                    your_ties = n_tied(scores, new_sites, key)
                     st.markdown(
-                        f"Your pick: <b style='color:{rank_colour(yours, n_total)}'>#{yours}</b> "
+                        f"Your pick: <b style='color:{rank_colour(yours, n_total)}'>"
+                        f"{'joint ' if your_ties else ''}#{yours}</b> "
                         f"of {n_total:,}" + (" 🏆" if yours == 1 else ""),
                         unsafe_allow_html=True,
                     )
+                    if your_ties:
+                        st.caption(f"Tied with {other_options(your_ties)}")
 
             pick_key = (
                 st.segmented_control(
@@ -636,8 +650,13 @@ with tab_opt:
             ].iloc[0]
             win_score = scores[pick_key].min()
             gain = round(your_score - win_score, decimals)
+            your_ties = n_tied(scores, new_sites, pick_key)
             if winner_sites == new_sites:
                 vs_yours = "This is your pick 🏆"
+            elif your_score == win_score:
+                vs_yours = "Tied with your pick" + (
+                    f" and {other_options(your_ties - 1)}" if your_ties > 1 else ""
+                ) + " 🏆"
             elif gain == 0:
                 vs_yours = "The same as your pick"
             else:
@@ -648,6 +667,7 @@ with tab_opt:
             left.markdown(f"**{score_fmt.format(your_score, cutoff=opt_cutoff)}**")
             left.caption(
                 f"#{rank_of(scores, new_sites, pick_key)} of {n_total:,} on this question"
+                + (f", tied with {other_options(your_ties)}" if your_ties else "")
             )
             left.plotly_chart(
                 compare_map(
