@@ -136,18 +136,22 @@ def best_by_count(mode: str, cutoff: float, demand: str = "today") -> dict:
     data = load_data()
     w = data.demand[demand]
     today = nearest_time(data, mode)
+    dep = data.imd <= DEPRIVED_MAX_DECILE
     best = {
         "avg": [float((today * w).sum() / w.sum())],
+        "deprived": [float((today[dep] * w[dep]).sum() / w[dep].sum())],
         "beyond": [float(w[today > cutoff].sum())],
         "helped": [0.0],
     }
     for n in range(1, MAX_WHAT_IF_SITES + 1):
-        avg, beyond, helped = np.inf, np.inf, 0.0
+        avg, beyond, helped, deprived = np.inf, np.inf, 0.0, np.inf
         for combo in itertools.combinations(data.candidates, n):
             times = nearest_time(data, mode, combo)
             avg = min(avg, float((times * w).sum() / w.sum()))
             beyond = min(beyond, float(w[times > cutoff].sum()))
             helped = max(helped, float(w[times < today].sum()))
+            deprived = min(deprived, float((times[dep] * w[dep]).sum() / w[dep].sum()))
+        best["deprived"].append(deprived)
         best["avg"].append(avg)
         best["beyond"].append(beyond)
         best["helped"].append(helped)
@@ -166,3 +170,11 @@ def rank_of(scores: pd.DataFrame, sites, objective: str) -> int:
 
 def n_combinations(n_candidates: int, n_new: int) -> int:
     return comb(n_candidates, n_new)
+
+
+def nearest_shares(data: Data, mode: str, new_sites=(), demand: str = "today") -> dict:
+    """Share of people whose nearest centre is each centre (name -> share)."""
+    cols = list(data.existing) + list(new_sites)
+    w = data.demand[demand]
+    shares = np.bincount(nearest_site(data, mode, new_sites), weights=w, minlength=len(cols)) / w.sum()
+    return {data.short_names[c]: float(sh) for c, sh in zip(cols, shares)}

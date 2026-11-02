@@ -19,6 +19,7 @@ from core import (
     label,
     load_data,
     n_combinations,
+    nearest_shares,
     nearest_time,
     rank_of,
     score_all_combinations,
@@ -65,9 +66,13 @@ DEFAULT_CUTOFF = {"car": 45, "pt": 90}
 MAP_CHOICES = {
     ("time", "car"): "Journey time by car",
     ("cutoff", "car"): "Who is too far by car",
+    ("deprived", "car"): "Most deprived areas by car",
+    ("gain", "car"): "Who gets a quicker journey by car",
     ("nearest", "car"): "Closest centre by car",
     ("time", "pt"): "Journey time by public transport",
     ("cutoff", "pt"): "Who is too far by public transport",
+    ("deprived", "pt"): "Most deprived areas by public transport",
+    ("gain", "pt"): "Who gets a quicker journey by public transport",
     ("nearest", "pt"): "Closest centre by public transport",
 }
 
@@ -135,12 +140,13 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
         fmt = lambda g: f"{g / 1000:.1f}k" if g >= 50 else "0"
         say = lambda g: f"{round(g, -2):,.0f} more people within {cutoff} min"
         say_last = say
-    elif view == "time":
-        series = best["avg"]
+    elif view in ("time", "deprived"):
+        series = best["deprived" if view == "deprived" else "avg"]
         gains = [series[i - 1] - series[i] for i in range(1, len(series))]
         y_title = "Minutes cut from average"
         fmt = lambda g: f"{g:.1f}"
-        say = lambda g: f"the average journey by {g:.1f} min"
+        whose = "the average journey in the most deprived areas" if view == "deprived" else "the average journey"
+        say = lambda g: f"{whose} by {g:.1f} min"
         say_last = say
     else:
         series = best["helped"]
@@ -150,7 +156,7 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
         say = lambda g: f"{round(g, -2):,.0f} people a closer centre"
         say_last = say
 
-    verb = {"cutoff": "brings", "time": "cuts", "nearest": "gives"}[view]
+    verb = {"cutoff": "brings", "time": "cuts", "deprived": "cuts", "gain": "gives", "nearest": "gives"}[view]
     first = f"The best 1st new centre {verb} {say(gains[0])}."
     nonzero = [i for i, g in enumerate(gains) if round(g, -2) > 0 and g >= 50]
     if view == "cutoff" and len(nonzero) < len(gains):
@@ -275,7 +281,7 @@ with st.sidebar:
             persist_state="page",
         )
         st.caption(
-            "This doesn't change the map directly. Use it together with the options above: "
+            "This doesn't change the map colours. Use it together with the options above: "
             "it changes the numbers, the chart and the optimiser."
         )
 
@@ -393,19 +399,25 @@ with tab_build:
         )
 
     with map_col:
-        st.plotly_chart(
-            travel_map(data, mode, tapped_sites, cutoff, view, selectable=True),
-            key=f"main_map_{st.session_state.map_taps}",
-            width="stretch",
-            config={"displayModeBar": False},
-            on_select=on_map_click,
-            selection_mode="points",
-        )
         if view == "time":
             st.caption("Hover over an area to see its journey time. Tap a dot to add or remove a centre.")
+        elif view == "deprived":
+            st.caption(
+                "Only the most deprived third of areas are coloured. Hover to see a journey time. "
+                "Tap a dot to add or remove a centre."
+            )
+        elif view == "gain":
+            st.caption(
+                "Darker areas gain more minutes from your new centres; uncoloured areas are no quicker. "
+                "Tap a dot to add or remove a centre."
+                + ("" if has_new else " Add a centre to see who gains.")
+            )
         elif view == "nearest":
+            shares = nearest_shares(data, mode, new_sites, demand)
+            busiest = max(shares, key=shares.get)
             st.caption(
                 "Each colour is the area closest to one centre - warm colours are your new ones. "
+                f"The busiest centre is {busiest}, with {shares[busiest]:.0%} of patients. "
                 "Hover over an area to see which. Tap a dot to add or remove a centre."
             )
         else:
@@ -413,6 +425,14 @@ with tab_build:
                 f"Red areas are more than {cutoff} minutes from the nearest centre. "
                 "Tap a dot to add or remove a centre."
             )
+        st.plotly_chart(
+            travel_map(data, mode, tapped_sites, cutoff, view, selectable=True, demand=demand),
+            key=f"main_map_{st.session_state.map_taps}",
+            width="stretch",
+            config={"displayModeBar": False},
+            on_select=on_map_click,
+            selection_mode="points",
+        )
 
     st.divider()
     render_what_if(mode, cutoff, demand, view, len(new_sites))

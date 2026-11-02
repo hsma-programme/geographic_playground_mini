@@ -5,7 +5,7 @@ import os
 import numpy as np
 import plotly.graph_objects as go
 
-from core import Data, nearest_site, nearest_time
+from core import DEPRIVED_MAX_DECILE, Data, nearest_site, nearest_time
 
 # Basemap tiles need internet. Set MINI_OFFLINE=1 on a stand laptop with no wifi
 # to fall back to a plain background (the area outlines still read fine).
@@ -18,10 +18,22 @@ NEW_SITE = "#ffe600"  # yellow stands out against both the blue/red and journey-
 TIME_COLORSCALE = [[0, "#1fb1b9"], [0.45, "#f6e8a4"], [1, "#b2182b"]]
 # Colour scale tops out here so car and public transport maps each use their range
 TIME_MAX = {"car": 60, "pt": 120}
+# 'Quicker journey' view: teal only (red means "too far"); tops out near the biggest saving
+GAIN_COLORSCALE = [[0, "#e3f4f5"], [1, "#0e6f75"]]
+GAIN_MAX = {"car": 45, "pt": 120}
 # 'Closest site' view: cool colours for today's centres, warm for new ones, so the
 # area a new centre takes over stands out (no red, which means "too far" elsewhere)
 EXISTING_COLOURS = ["#4e79a7", "#59a14f", "#76b7b2", "#b07aa1"]
 NEW_COLOURS = ["#f28e2b", "#edc948", "#ff9da7"]
+
+
+def _colorbar(title):
+    """Legend kept inside the map's bottom-left corner, in black so it reads on the pale basemap."""
+    black = dict(color="#000", size=13)
+    return dict(
+        title=dict(text=title, font=black), tickfont=black, thickness=12, len=0.4,
+        x=0.02, xanchor="left", y=0.3, yanchor="middle",
+    )
 
 
 def _site_traces(data: Data, new_sites, selectable=False):
@@ -62,9 +74,12 @@ def _site_traces(data: Data, new_sites, selectable=False):
     ]
 
 
-def travel_map(data: Data, mode, new_sites, cutoff, view, height=640, selectable=False) -> go.Figure:
-    """The interactive map: binary 'beyond the cutoff' view, a time gradient, or
-    each area coloured by its closest centre.
+def travel_map(
+    data: Data, mode, new_sites, cutoff, view, height=640, selectable=False, demand="today"
+) -> go.Figure:
+    """The interactive map: binary 'beyond the cutoff' view, a time gradient, that
+    gradient for the most deprived areas only, the minutes saved by new centres, or
+    each area coloured by its closest centre (hover shows each centre's share of patients).
 
     selectable=True sizes and labels the candidate sites for tapping.
     """
@@ -78,14 +93,21 @@ def travel_map(data: Data, mode, new_sites, cutoff, view, height=640, selectable
         scale = [[edge / k, c] for i, c in enumerate(colours) for edge in (i, i + 1)]
         nearest = nearest_site(data, mode, new_sites)
         names = np.array([data.short_names[i] for i in sites])[nearest]
+        w = data.demand[demand]
+        shares = np.bincount(nearest, weights=w, minlength=k) / w.sum()
         choropleth = go.Choroplethmap(
             geojson=data.geojson, locations=np.arange(len(nearest)), z=nearest,
             zmin=-0.5, zmax=k - 0.5, colorscale=scale, showscale=False,
             marker=dict(opacity=0.75, line_width=0),
             selected=dict(marker=dict(opacity=0.75)),
             unselected=dict(marker=dict(opacity=0.75)),
-            customdata=np.column_stack([names, times.round(0).astype(int)]),
-            hovertemplate="Closest centre: %{customdata[0]}<br>%{customdata[1]} minutes<extra></extra>",
+            customdata=np.column_stack(
+                [names, times.round(0).astype(int), (shares[nearest] * 100).round(0).astype(int)]
+            ),
+            hovertemplate=(
+                "Closest centre: %{customdata[0]} (%{customdata[2]}% of patients)"
+                "<br>%{customdata[1]} minutes<extra></extra>"
+            ),
         )
     elif view == "cutoff":
         z = (times > cutoff).astype(int)
@@ -98,11 +120,26 @@ def travel_map(data: Data, mode, new_sites, cutoff, view, height=640, selectable
             customdata=times.round(0),
             hovertemplate="%{customdata:.0f} minutes to nearest centre<extra></extra>",
         )
-    else:
+    elif view == "gain":
+        # Only areas with a quicker nearest centre are coloured; the rest show the basemap
+        saved = nearest_time(data, mode) - times
+        idx = np.flatnonzero(saved > 0.5)
         choropleth = go.Choroplethmap(
-            geojson=data.geojson, locations=np.arange(len(times)), z=times.round(1),
+            geojson=data.geojson, locations=idx, z=saved[idx].round(1),
+            zmin=0, zmax=GAIN_MAX[mode], colorscale=GAIN_COLORSCALE,
+            colorbar=_colorbar("minutes saved"),
+            marker=dict(opacity=0.8, line_width=0),
+            selected=dict(marker=dict(opacity=0.8)),
+            unselected=dict(marker=dict(opacity=0.8)),
+            hovertemplate="%{z:.0f} minutes quicker<extra></extra>",
+        )
+    else:
+        # "time" for everyone, or "deprived": the same gradient for IMD deciles 1-3 only
+        idx = np.flatnonzero(data.imd <= DEPRIVED_MAX_DECILE) if view == "deprived" else np.arange(len(times))
+        choropleth = go.Choroplethmap(
+            geojson=data.geojson, locations=idx, z=times[idx].round(1),
             zmin=0, zmax=TIME_MAX[mode], colorscale=TIME_COLORSCALE,
-            colorbar=dict(title="minutes", thickness=12, len=0.5, x=0.01, xanchor="left", y=0.2),
+            colorbar=_colorbar("minutes"),
             marker=dict(opacity=0.75, line_width=0),
             selected=dict(marker=dict(opacity=0.75)),
             unselected=dict(marker=dict(opacity=0.75)),
