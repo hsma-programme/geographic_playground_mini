@@ -102,10 +102,24 @@ def summarise(data: Data, times: np.ndarray, cutoff: float, demand: str = "today
 def score_all_combinations(mode: str, n_new: int, cutoff: float, demand: str = "today") -> pd.DataFrame:
     """Score every way of adding `n_new` candidate sites to today's network."""
     data = load_data()
+    w = data.demand[demand]
+    today = nearest_time(data, mode)
     rows = []
     for combo in itertools.combinations(data.candidates, n_new):
         times = nearest_time(data, mode, combo)
-        rows.append({"sites": combo, **summarise(data, times, cutoff, demand)})
+        # Share of people whose nearest centre is the busiest one (1 / n centres if perfectly even)
+        shares = np.bincount(
+            nearest_site(data, mode, combo), weights=w, minlength=len(data.existing) + n_new
+        ) / w.sum()
+        rows.append(
+            {
+                "sites": combo,
+                **summarise(data, times, cutoff, demand),
+                # People whose nearest centre is now quicker, as tab 1's "People helped"
+                "helped": float(w[times < today].sum()),
+                "busiest": float(shares.max()),
+            }
+        )
     return pd.DataFrame(rows)
 
 

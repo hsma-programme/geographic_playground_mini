@@ -72,9 +72,6 @@ MAP_CHOICES = {
 
 st.session_state.setdefault("mode", "car")
 st.session_state.setdefault("cutoff", DEFAULT_CUTOFF["car"])
-# The cutoff slider is hidden in the journey-time views; re-assigning stops Streamlit
-# discarding its value while it isn't drawn (the metrics and optimiser still use it)
-st.session_state.cutoff = st.session_state.cutoff
 st.session_state.setdefault("view", "cutoff")
 # One radio per travel mode; choosing in one clears the other
 st.session_state.setdefault("map_choice_car", ("cutoff", "car"))
@@ -138,52 +135,89 @@ def on_map_click():
     st.session_state.optimiser_ran = False
 
 
+def on_question_change(row):
+    """Tab 3 allows MAX_QUESTIONS questions across all rows; a tap past that is undone."""
+    state = st.session_state
+    if sum(len(state[f"pareto_{r}"]) for r in pareto.ROWS) > pareto.MAX_QUESTIONS:
+        state[f"pareto_{row}"] = state[f"pareto_prev_{row}"]
+        st.toast(f"You can weigh up to {pareto.MAX_QUESTIONS} questions at once - untick one first.", icon="☝️")
+    for r in pareto.ROWS:
+        state[f"pareto_prev_{r}"] = list(state[f"pareto_{r}"])
+
+
+for r, default in pareto.DEFAULT_QUESTIONS.items():
+    st.session_state.setdefault(f"pareto_{r}", list(default))
+    st.session_state.setdefault(f"pareto_prev_{r}", list(default))
+
+# What every tab reads (the sidebar and tab 1's widgets write it)
+mode = st.session_state.mode
+cutoff = st.session_state.cutoff
+view = st.session_state.view
+demand = st.session_state.get("demand", "today")
+# Each mode has its own cutoff: tab 1's slider for the mode it is showing, the default for the other
+cutoffs = {m: DEFAULT_CUTOFF[m] for m in DEFAULT_CUTOFF} | {mode: cutoff}
+who = "People aged 50-84" + (" in 2036" if demand == "2036" else "")
+# Tap order sets each new centre's colour on the 'closest site' map; sorted for everything else
+tapped_sites = tuple(st.session_state.new_sites[:MAX_NEW_SITES])
+new_sites = tuple(sorted(tapped_sites))
+has_new = bool(new_sites)
+
+# on_change="rerun" tracks the open tab, so the sidebar can be tab 1's alone
 tab_build, tab_opt, tab_trade = st.tabs(
-    ["1 · You choose", "2 · Watch the optimiser", "3 · Weigh it up"]
+    ["1 · You choose", "2 · Watch the optimiser", "3 · Weigh it up"],
+    key="page",
+    on_change="rerun",
 )
 
 # Controls are drawn first (they write session state), then the maps read it
 with st.sidebar:
-    for radio_mode, heading, heading_help in [
-        ("car", "By car", None),
-        (
-            "pt",
-            "By public transport",
-            "Public transport means buses and walking only - trains are not included in the data.",
-        ),
-    ]:
-        if radio_mode == "pt":
-            st.divider()
-        st.subheader(heading, help=heading_help)
-        st.radio(
-            f"Map shows ({heading.lower()})",
-            [c for c in MAP_CHOICES if c[1] == radio_mode],
-            format_func=MAP_CHOICES.get,
-            key=f"map_choice_{radio_mode}",
-            on_change=on_map_choice_change,
-            args=(radio_mode,),
-            label_visibility="collapsed",
-        )
-    if st.session_state.view == "cutoff":
-        st.slider("How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff")
+    # Mode, cutoff and demand only mean something on tab 1; tabs 2 and 3 follow them.
+    # persist_state keeps their values while they aren't drawn
+    if tab_build.open:
+        for radio_mode, heading, heading_help in [
+            ("car", "By car", None),
+            (
+                "pt",
+                "By public transport",
+                "Public transport means buses and walking only - trains are not included in the data.",
+            ),
+        ]:
+            if radio_mode == "pt":
+                st.divider()
+            st.subheader(heading, help=heading_help)
+            st.radio(
+                f"Map shows ({heading.lower()})",
+                [c for c in MAP_CHOICES if c[1] == radio_mode],
+                format_func=MAP_CHOICES.get,
+                key=f"map_choice_{radio_mode}",
+                on_change=on_map_choice_change,
+                args=(radio_mode,),
+                label_visibility="collapsed",
+                persist_state="page",
+            )
+        if st.session_state.view == "cutoff":
+            st.slider(
+                "How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff", persist_state="page"
+            )
 
-    st.divider()
-    st.subheader(
-        "Demand",
-        help=(
-            "Today uses ONS population estimates. The 2036 figures are an illustrative projection "
-            "made for teaching, not an official forecast: rural and coastal areas age faster than "
-            "the cities, especially in the South Hams."
-        ),
-    )
-    st.radio(
-        "Whose journeys count",
-        list(DEMANDS),
-        format_func=DEMANDS.get,
-        key="demand",
-        on_change=on_sites_change,
-        label_visibility="collapsed",
-    )
+        st.divider()
+        st.subheader(
+            "Demand",
+            help=(
+                "Today uses ONS population estimates. The 2036 figures are an illustrative projection "
+                "made for teaching, not an official forecast: rural and coastal areas age faster than "
+                "the cities, especially in the South Hams."
+            ),
+        )
+        st.radio(
+            "Whose journeys count",
+            list(DEMANDS),
+            format_func=DEMANDS.get,
+            key="demand",
+            on_change=on_sites_change,
+            label_visibility="collapsed",
+            persist_state="page",
+        )
 
 # ---------------------------------------------------------------- tab 1
 with tab_build:
@@ -232,19 +266,9 @@ with tab_build:
             icon=":material/casino:",
         )
 
-    mode = st.session_state.mode
-    cutoff = st.session_state.cutoff
-    view = st.session_state.view
-    # Tap order sets each new centre's colour on the 'closest site' map; sorted for everything else
-    tapped_sites = tuple(st.session_state.new_sites[:MAX_NEW_SITES])
-    new_sites = tuple(sorted(tapped_sites))
-    has_new = bool(new_sites)
-
     today_times = nearest_time(data, mode)
     now_times = nearest_time(data, mode, new_sites)
-    demand = st.session_state.demand
     people = data.demand[demand]
-    who = "People aged 50-84" + (" in 2036" if demand == "2036" else "")
     today = summarise(data, today_times, cutoff, demand)
     now = summarise(data, now_times, cutoff, demand)
     # Anyone whose nearest centre is now quicker, whatever the time limit
@@ -329,6 +353,10 @@ with tab_opt:
             f"You chose **{label(data, new_sites)}**. Is that the best place? "
             f"There are **{n_total:,}** ways to place {n_new} new "
             f"centre{'s' if n_new > 1 else ''} - a computer can try them all."
+        )
+        st.caption(
+            f"Scored on journeys {pareto.MODE_NAME[mode]} for {who.lower()}, with more than "
+            f"{cutoff} minutes counted as too far. You can change these on the first tab."
         )
         if st.button("Run the optimiser", key="run_optimiser", icon=":material/rocket_launch:"):
             st.session_state.optimiser_ran = True
@@ -416,19 +444,27 @@ with tab_trade:
             something, so choosing between them is a judgement for people, not computers.
             """
         )
-        keys = st.pills(
-            "Which questions matter to you?",
-            list(OBJECTIVES),
-            format_func=lambda k: OBJECTIVES[k][0],
-            selection_mode="multi",
-            default=list(OBJECTIVES),
-            key="pareto_keys",
-        )
+        qs = pareto.questions(cutoffs)
+        st.markdown(f"**Which questions matter to you?** Pick up to {pareto.MAX_QUESTIONS}.")
+        for row, row_title in pareto.ROWS.items():
+            st.pills(
+                row_title,
+                [k for k, q in qs.items() if q.row == row],
+                format_func=lambda k: qs[k].pill,
+                selection_mode="multi",
+                key=f"pareto_{row}",
+                on_change=on_question_change,
+                args=(row,),
+                persist_state="page",
+            )
+        # In the order of the list above, not the order they were tapped
+        chosen = {k for row in pareto.ROWS for k in st.session_state[f"pareto_{row}"]}
+        keys = [k for k in qs if k in chosen]
         if len(keys) < 2:
             st.warning("Pick at least two questions to weigh them against each other.")
         else:
-            trade_scores = score_all_combinations(mode, len(new_sites), float(cutoff), demand)
-            ss = pareto.solution_set(data, trade_scores, keys, cutoff)
+            trade_scores = pareto.question_scores(data, len(new_sites), cutoffs, demand)
+            ss = pareto.solution_set(data, trade_scores, keys, qs)
             n_front, n_total, beater = pareto.verdict(ss, keys, new_sites)
             st.markdown(
                 f"<div class='result-box'><div class='result-line'>"

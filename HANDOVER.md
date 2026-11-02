@@ -44,21 +44,36 @@ Key design decisions:
 - The metrics count **people aged 50-84** (the full app's demand definition). Copy says so on the headline.
 - Wording note from the full app: IMD decile 1 = most deprived.
 
-## Tab 3: "Weigh it up" (added, uncommitted)
+## Tab 3: "Weigh it up"
 
-Visitors pick which of the four questions matter (pills, at least two). The page shows how many options are not
-beaten on every chosen question (1-12 in the cases checked), whether their pick is one of them, and a lokigi
-interactive radar ("Shapes", needs 3+ questions) or parallel-lines chart ("Lines"). The chart opens with only
-the best option per question plus the visitor's pick visible; the rest are greyed in the legend.
-lokigi is now a runtime dependency (`lokigi>=0.10.0`); see CLAUDE.md for the install-size and import-time cost.
+Visitors pick up to 5 of 10 questions (at least 2), in three rows of pills: by car (average journey, people
+over the cutoff, most deprived areas, longest journey, people helped), by public transport (the same minus
+longest journey) and "How the service runs" (most even workload: smallest share of patients going to the
+busiest centre, by car). The registry is `questions()` in `pareto.py`; `score_all_combinations` in `core.py`
+supplies the `helped` and `busiest` columns. The page shows how many options are not beaten on every chosen
+question, whether their pick is one of them, and a lokigi interactive radar ("Shapes", needs 3+ questions) or
+parallel-lines chart ("Lines"). The chart opens with only the best option per question plus the visitor's pick
+visible; the rest are greyed in the legend, which scrolls when there are many (up to 83 unbeaten options with 5
+questions and 3 centres). Options that are best on a question say so in the legend ("wins on ..."). Higher-is-
+better questions (people helped) are rescaled so further out is still better, and the radar says "Maximising".
+Each mode has its own cutoff: tab 1's slider for the mode it shows, `DEFAULT_CUTOFF` for the other.
+
+Deliberately left out: longest journey by public transport (unreachable areas are capped at 180, so it never
+differs), a fairness gap between deprived and other areas (in Devon deprived areas are already closer under every
+network, so "smallest gap" rewards helping richer rural areas), and 2036 journeys (correlate 0.98 with today's).
+lokigi is a runtime dependency (`lokigi>=0.10.0`); see CLAUDE.md for the install-size and import-time cost.
 Visitor copy avoids the words "Pareto" and "dominated".
 
-Verified in headless Chrome (car, today, 2 centres, 4 / 3 / 2 / 1 questions; radar, lines and the
-fewer-than-two warning). Not verified: public transport on this tab through the UI (the sidebar click did not
-register in the driver; front sizes for it were only computed offline), 3 centres through the UI at the final
-layout, the 2036 demand, hover and legend taps (only static screenshots), touch input, narrow screens, and
-load time on a stand laptop. The radar's plot area is shrunk (`polar.domain` in `pareto.py`) so the spoke
-labels are not clipped; the last margin tweak was not re-screenshotted.
+The sidebar (travel mode, map view, cutoff, demand) is drawn only on tab 1, using `st.tabs(key="page",
+on_change="rerun")` and `tab_build.open`; tab 2 carries a one-line caption of what it is scoring. Every widget
+that can stop being drawn needs `persist_state="page"`, or its value is lost.
+
+Verified in headless Chrome: all three tabs with 3 centres by car; the sidebar present only on tab 1; picks and
+mode kept across tabs; public transport (tab 2 caption and tab 3 cutoffs); the cap of 5 (the sixth tap is undone
+with a toast); radar and lines with 4 and 5 questions. Not verified: the cutoff slider moved away from its
+default (only the default cutoffs were exercised), the 2036 demand, "Most even workload" and the deprived
+questions on the final layout, hover and legend taps (static screenshots only), touch, narrow screens, and load
+time on a stand laptop.
 
 ## Gotchas learned the hard way
 
