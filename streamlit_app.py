@@ -301,11 +301,13 @@ with st.sidebar:
     # persist_state keeps their values while they aren't drawn
     if tab_build.open:
         # NIHR logo, directly under the HSMA logo in the sidebar header
-        st.image(
-            "resources/NIHR_APPLIED_RESEARCH_COLLABORATION_Logo_Horizontal_RGB_WHITE.png",
-            width="stretch",
-            link="https://arc-sw.nihr.ac.uk/",
-        )
+        # Keyed so style.css can hide the image's hover "fullscreen" button
+        with st.container(key="nihr_logo"):
+            st.image(
+                "resources/NIHR_APPLIED_RESEARCH_COLLABORATION_Logo_Horizontal_RGB_WHITE.png",
+                width="stretch",
+                link="https://arc-sw.nihr.ac.uk/",
+            )
         st.caption(
             "**Choose what the map shows.** Each option colours the map with a different "
             "set of information. Changing this will not affect the centres you have chosen."

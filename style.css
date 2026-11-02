@@ -293,6 +293,9 @@ h1,
 /* Let the town pills wrap onto several rows instead of scrolling sideways */
 [data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; }
 
+/* No hover "fullscreen" button on the NIHR logo (it is a link, not a picture to inspect) */
+.st-key-nihr_logo [data-testid="stElementToolbar"] { display: none; }
+
 /* Stand-sized zoom buttons on tab 1's map (Plotly's default icons are about 16px) */
 [class*="st-key-main_map_"] .modebar-btn {
 	width: 40px; height: 40px !important; padding: 0 !important;
