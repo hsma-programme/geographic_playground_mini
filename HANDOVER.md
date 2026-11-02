@@ -146,6 +146,17 @@ around Kingsbridge; the help hover and footer say so. With the default cutoffs i
 with 2-3 new centres (Kingsbridge joins the "shortest average journey" winner, and the 2-centre "fewest far away"
 one); with 1 new centre, or by public transport, the winners don't change. The maps themselves don't depend on demand.
 
+Tab 1 also has a "What if the budget were bigger?" panel, full width below the map and metrics behind a divider (`render_what_if` in `streamlit_app.py`,
+`best_by_count` in `core.py`, `diminishing_returns_chart` in `figures.py`). It shows what the best 1st to 8th extra
+centre adds, on the measure the sidebar map is showing: people within the cutoff ("too far" view), minutes cut from
+the average journey ("journey time"), or people with a closer centre ("closest centre"). Each count uses its own
+best combination for that measure, so the bars always fall. Bars within the 3-centre budget are solid, the rest
+faded, and the bar for the visitor's current number of centres is outlined yellow. Deliberately left out: the
+visitor's own per-centre gains in tap order (they can rise, which muddies the message). Verified in headless
+Chrome for car and public transport in all three views, with the sentence numbers matching a scratch exhaustive
+run. Not verified: the "nobody is too far" message (cutoff view with a cutoff so high that nobody is beyond it),
+the 2036 demand, touch, and narrow screens.
+
 To confirm: the footer links in `streamlit_app.py` (`FULL_PLAYGROUND_URL`, `CODE_URL`) point at the Bergam0t
 GitHub repos, since the full playground has no known deployed URL. The DES mini links to `hsma-programme/...`
 instead; update both if these move.

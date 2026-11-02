@@ -21,6 +21,8 @@ DATA_DIR = Path(__file__).parent / "data"
 # Most-deprived group for the "fairness" objective: IMD deciles 1-3 (1 = most deprived)
 DEPRIVED_MAX_DECILE = 3
 MAX_NEW_SITES = 3
+# How far the "what if the budget were bigger?" chart looks beyond the budget
+MAX_WHAT_IF_SITES = 8
 
 EXISTING_SHORT_NAMES = {
     "Bideford Community Hospital": "Bideford",
@@ -121,6 +123,35 @@ def score_all_combinations(mode: str, n_new: int, cutoff: float, demand: str = "
             }
         )
     return pd.DataFrame(rows)
+
+
+@st.cache_data(show_spinner=False)
+def best_by_count(mode: str, cutoff: float, demand: str = "today") -> dict:
+    """Best possible score for 0..MAX_WHAT_IF_SITES new sites, each measure optimised separately.
+
+    "avg" and "beyond" are lower-is-better; "helped" (people whose nearest centre is
+    quicker than today's) is higher-is-better. Lighter than score_all_combinations,
+    which suits a chart that reruns whenever the cutoff slider moves.
+    """
+    data = load_data()
+    w = data.demand[demand]
+    today = nearest_time(data, mode)
+    best = {
+        "avg": [float((today * w).sum() / w.sum())],
+        "beyond": [float(w[today > cutoff].sum())],
+        "helped": [0.0],
+    }
+    for n in range(1, MAX_WHAT_IF_SITES + 1):
+        avg, beyond, helped = np.inf, np.inf, 0.0
+        for combo in itertools.combinations(data.candidates, n):
+            times = nearest_time(data, mode, combo)
+            avg = min(avg, float((times * w).sum() / w.sum()))
+            beyond = min(beyond, float(w[times > cutoff].sum()))
+            helped = max(helped, float(w[times < today].sum()))
+        best["avg"].append(avg)
+        best["beyond"].append(beyond)
+        best["helped"].append(helped)
+    return best
 
 
 def label(data: Data, sites) -> str:

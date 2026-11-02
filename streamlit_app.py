@@ -15,6 +15,7 @@ from core import (
     DEMANDS,
     MAX_NEW_SITES,
     OBJECTIVES,
+    best_by_count,
     label,
     load_data,
     n_combinations,
@@ -25,7 +26,7 @@ from core import (
 )
 import pareto
 from animation import render_optimiser_animation
-from figures import static_time_map, travel_map
+from figures import diminishing_returns_chart, static_time_map, travel_map
 
 HSMA_URL = "https://hsma.co.uk"
 FULL_PLAYGROUND_URL = "https://github.com/Bergam0t/geographic_or_ds_playground"
@@ -112,6 +113,59 @@ def delta_kwargs(diff, unit, decimals, show, comma=False):
         return {"delta": "no change", "delta_color": "off"}
     fmt = f"{{:+{',' if comma else ''}.{decimals}f}}"
     return {"delta": fmt.format(diff) + unit, "delta_color": "inverse"}
+
+
+ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"]
+
+
+def render_what_if(mode, cutoff, demand, view, n_chosen):
+    """Diminishing returns: what each extra centre adds, on the measure the map is showing."""
+    best = best_by_count(mode, float(cutoff), demand)
+    st.subheader("What if the budget were bigger?")
+    if view == "cutoff":
+        series = best["beyond"]
+        if series[0] == 0:
+            st.caption(
+                f"Nobody is more than {cutoff} minutes from a centre today, so extra centres "
+                "can't help on this measure."
+            )
+            return
+        gains = [series[i - 1] - series[i] for i in range(1, len(series))]
+        y_title = f"Extra people within {cutoff} min"
+        fmt = lambda g: f"{g / 1000:.1f}k" if g >= 50 else "0"
+        say = lambda g: f"{round(g, -2):,.0f} people within {cutoff} min"
+        say_last = say
+    elif view == "time":
+        series = best["avg"]
+        gains = [series[i - 1] - series[i] for i in range(1, len(series))]
+        y_title = "Minutes cut from average"
+        fmt = lambda g: f"{g:.1f}"
+        say = lambda g: f"the average journey by {g:.1f} min"
+        say_last = say
+    else:
+        series = best["helped"]
+        gains = [series[i] - series[i - 1] for i in range(1, len(series))]
+        y_title = "Extra people helped"
+        fmt = lambda g: f"{g / 1000:.0f}k"
+        say = lambda g: f"{round(g, -2):,.0f} people a closer centre"
+        say_last = say
+
+    verb = {"cutoff": "brings", "time": "cuts", "nearest": "gives"}[view]
+    first = f"The best 1st new centre {verb} {say(gains[0])}."
+    nonzero = [i for i, g in enumerate(gains) if round(g, -2) > 0 and g >= 50]
+    if view == "cutoff" and len(nonzero) < len(gains):
+        k = nonzero[-1]
+        later = f" The {ORDINALS[k]} {verb} {say_last(gains[k])}. After that, none." if k else " After that, none."
+    else:
+        later = f" The {ORDINALS[-1]} {verb} {say_last(gains[-1])}."
+    st.markdown(first + later)
+    st.plotly_chart(
+        diminishing_returns_chart(gains, n_chosen, MAX_NEW_SITES, y_title, fmt),
+        key="what_if",
+        width="stretch",
+        config={"displayModeBar": False},
+    )
+    st.caption("Each bar uses the best choice of sites for this measure.")
 
 
 def on_sites_change():
@@ -340,6 +394,9 @@ with tab_build:
                 f"Red areas are more than {cutoff} minutes from the nearest centre. "
                 "Tap a dot to add or remove a centre."
             )
+
+    st.divider()
+    render_what_if(mode, cutoff, demand, view, len(new_sites))
 
 # ---------------------------------------------------------------- tab 2
 with tab_opt:

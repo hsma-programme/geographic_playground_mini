@@ -117,6 +117,44 @@ def travel_map(data: Data, mode, new_sites, cutoff, view, height=640, selectable
     return fig
 
 
+def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280) -> go.Figure:
+    """Bars of what each extra centre adds (best possible choice each time).
+
+    Bars within the budget are solid, the rest faded; the bar for the number of
+    centres the visitor has chosen so far is outlined in yellow.
+    """
+    n = len(gains)
+    fig = go.Figure(
+        go.Bar(
+            x=[f"{i}" for i in range(1, n + 1)],
+            y=gains,
+            text=[fmt(g) for g in gains],
+            textposition="outside",
+            textfont=dict(size=14),
+            cliponaxis=False,
+            marker=dict(
+                color=["#1fb1b9" if i < budget else "rgba(31,177,185,0.35)" for i in range(n)],
+                line=dict(
+                    color=[NEW_SITE if i == n_chosen - 1 else "rgba(0,0,0,0)" for i in range(n)],
+                    width=4,
+                ),
+            ),
+            hoverinfo="skip",
+        )
+    )
+    fig.update_layout(
+        height=height, margin=dict(l=0, r=0, t=24, b=0), showlegend=False,
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(
+            title="Extra centre (faded = over budget)", tickfont=dict(size=14), fixedrange=True,
+            tickmode="array", tickvals=[f"{i}" for i in range(1, n + 1)],
+        ),
+        yaxis=dict(title=y_title, tickfont=dict(size=12), fixedrange=True, rangemode="tozero"),
+        bargap=0.25,
+    )
+    return fig
+
+
 def static_time_map(data: Data, mode, new_sites, height=440) -> go.Figure:
     """Compact gradient map used to compare 'your pick' with 'the optimiser's pick'."""
     fig = travel_map(data, mode, new_sites, cutoff=0, view="time", height=height)
