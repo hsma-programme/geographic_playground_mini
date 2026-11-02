@@ -27,7 +27,13 @@ from core import (
 )
 import pareto
 from animation import render_optimiser_animation
-from figures import MAP_ZOOM_CONFIG, compare_map, diminishing_returns_chart, journey_chart, travel_map
+from figures import (
+    MAP_ZOOM_CONFIG,
+    compare_map,
+    diminishing_returns_chart,
+    journey_chart,
+    travel_map,
+)
 
 HSMA_URL = "https://hsma.co.uk"
 FULL_PLAYGROUND_URL = "https://github.com/Bergam0t/geographic_or_ds_playground"
@@ -72,11 +78,30 @@ MAP_VIEWS = {
 }
 
 # Tab 2's comparison maps: the tab 1 view that shows each optimiser question best
-OBJECTIVE_VIEW = {"avg": "time", "beyond": "cutoff", "deprived": "deprived", "worst": "time"}
+OBJECTIVE_VIEW = {
+    "avg": "time",
+    "beyond": "cutoff",
+    "deprived": "deprived",
+    "worst": "time",
+}
+_TIME_CAPTION = "Colours show the journey time to the nearest centre, from quick (teal) to slow (red)."
 COMPARE_CAPTIONS = {
-    "time": "Colours show the journey time to the nearest centre, from quick (teal) to slow (red).",
-    "cutoff": "Red areas are more than {cutoff} minutes from the nearest centre.",
+    "avg": _TIME_CAPTION,
+    "beyond": "Red areas are more than {cutoff} minutes from the nearest centre.",
     "deprived": "Only the most deprived third of areas are coloured, from quick (teal) to slow (red).",
+    "worst": _TIME_CAPTION
+    + " The black outline marks the area with the longest journey.",
+}
+# Score under each comparison map, how much better the winner is, and the rounding for both
+COMPARE_SCORES = {
+    "avg": ("{:.1f} min average journey", "{:.1f} min shorter", 1),
+    "beyond": ("{:,.0f} people over {cutoff} min away", "{:,.0f} fewer people", 0),
+    "deprived": (
+        "{:.1f} min average journey in the most deprived areas",
+        "{:.1f} min shorter",
+        1,
+    ),
+    "worst": ("{:.1f} min longest journey", "{:.1f} min shorter", 1),
 }
 
 st.session_state.setdefault("mode", "car")
@@ -160,7 +185,11 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
         gains = [series[i - 1] - series[i] for i in range(1, len(series))]
         y_title = "Minutes cut from average"
         fmt = lambda g: f"{g:.1f}"
-        whose = "the average journey in the most deprived areas" if view == "deprived" else "the average journey"
+        whose = (
+            "the average journey in the most deprived areas"
+            if view == "deprived"
+            else "the average journey"
+        )
         say = lambda g: f"{whose} by {g:.1f} min"
         say_last = say
     else:
@@ -171,13 +200,25 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
         say = lambda g: f"{round(g, -2):,.0f} people a closer centre"
         say_last = say
 
-    verb = {"cutoff": "brings", "time": "cuts", "deprived": "cuts", "gain": "gives", "nearest": "gives"}[view]
+    verb = {
+        "cutoff": "brings",
+        "time": "cuts",
+        "deprived": "cuts",
+        "gain": "gives",
+        "nearest": "gives",
+    }[view]
     first = f"The best 1st new centre {verb} {say(gains[0])}."
     nonzero = [i for i, g in enumerate(gains) if round(g, -2) > 0 and g >= 50]
     if view == "cutoff" and len(nonzero) < len(gains):
         k = nonzero[-1]
-        no_benefit = " After that, there is no benefit on this measure to adding more centres."
-        later = f" The {ORDINALS[k]} {verb} {say_last(gains[k])}.{no_benefit}" if k else no_benefit
+        no_benefit = (
+            " After that, there is no benefit on this measure to adding more centres."
+        )
+        later = (
+            f" The {ORDINALS[k]} {verb} {say_last(gains[k])}.{no_benefit}"
+            if k
+            else no_benefit
+        )
     else:
         later = f" The {ORDINALS[-1]} {verb} {say_last(gains[-1])}."
     st.markdown(first + later)
@@ -209,7 +250,9 @@ def on_map_click(key):
         return
     site = tapped[0]
     sites = st.session_state.new_sites
-    st.session_state.new_sites = [s for s in sites if s != site] if site in sites else sites + [site]
+    st.session_state.new_sites = (
+        [s for s in sites if s != site] if site in sites else sites + [site]
+    )
     st.session_state.optimiser_ran = False
 
 
@@ -218,7 +261,10 @@ def on_question_change(row):
     state = st.session_state
     if sum(len(state[f"pareto_{r}"]) for r in pareto.ROWS) > pareto.MAX_QUESTIONS:
         state[f"pareto_{row}"] = state[f"pareto_prev_{row}"]
-        st.toast(f"You can weigh up to {pareto.MAX_QUESTIONS} questions at once - untick one first.", icon="☝️")
+        st.toast(
+            f"You can weigh up to {pareto.MAX_QUESTIONS} questions at once - untick one first.",
+            icon="☝️",
+        )
     for r in pareto.ROWS:
         state[f"pareto_prev_{r}"] = list(state[f"pareto_{r}"])
 
@@ -254,6 +300,12 @@ with st.sidebar:
     # tab 2 ignores them (it is always car, a 45-minute cutoff and today's population).
     # persist_state keeps their values while they aren't drawn
     if tab_build.open:
+        # NIHR logo, directly under the HSMA logo in the sidebar header
+        st.image(
+            "resources/NIHR_APPLIED_RESEARCH_COLLABORATION_Logo_Horizontal_RGB_WHITE.png",
+            width="stretch",
+            link="https://arc-sw.nihr.ac.uk/",
+        )
         st.caption(
             "**Choose what the map shows.** Each option colours the map with a different "
             "set of information. Changing this will not affect the centres you have chosen."
@@ -281,9 +333,17 @@ with st.sidebar:
                 persist_state="page",
             )
             # The slider sits under the travel mode it applies to, in the "too far" views only
-            if radio_mode == st.session_state.mode and st.session_state.view == "cutoff":
+            if (
+                radio_mode == st.session_state.mode
+                and st.session_state.view == "cutoff"
+            ):
                 st.slider(
-                    "How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff", persist_state="page"
+                    "How long is too long to travel? (minutes)",
+                    15,
+                    120,
+                    step=5,
+                    key="cutoff",
+                    persist_state="page",
                 )
 
         st.divider()
@@ -325,7 +385,7 @@ with tab_build:
         unsafe_allow_html=True,
     )
     st.info(
-        'Tap a grey dot on the map, or a town in the list, to open a centre there, '
+        "Tap a grey dot on the map, or a town in the list, to open a centre there, "
         'and watch the red "too far" areas shrink.',
         icon=":material/touch_app:",
     )
@@ -376,10 +436,15 @@ with tab_build:
         with st.container(key="headline"):
             st.metric(
                 # Shorter ending in 2036 so the label still fits on one line
-                f"{who} more than {cutoff} min " + ("away" if demand == "2036" else "from a centre"),
+                f"{who} more than {cutoff} min "
+                + ("away" if demand == "2036" else "from a centre"),
                 f"{now['beyond']:,.0f}",
                 **delta_kwargs(
-                    now["beyond"] - today["beyond"], " vs today's centres", 0, has_new, comma=True
+                    now["beyond"] - today["beyond"],
+                    " vs today's centres",
+                    0,
+                    has_new,
+                    comma=True,
                 ),
             )
         m1, m2 = st.columns(2)
@@ -412,7 +477,9 @@ with tab_build:
                 help="Average minutes saved, counting only the people helped.",
             )
         else:
-            st.caption("Showing today's network. Tap a grey dot or a town to add a centre.")
+            st.caption(
+                "Showing today's network. Tap a grey dot or a town to add a centre."
+            )
 
         st.markdown("**How long people travel**")
         st.plotly_chart(
@@ -447,11 +514,15 @@ with tab_build:
                 "Hover over an area to see which."
             )
         else:
-            map_note = f"Red areas are more than {cutoff} minutes from the nearest centre."
+            map_note = (
+                f"Red areas are more than {cutoff} minutes from the nearest centre."
+            )
         st.caption(map_note + " Click and drag to move the map.")
         map_key = f"main_map_{st.session_state.map_taps}"
         st.plotly_chart(
-            travel_map(data, mode, tapped_sites, cutoff, view, selectable=True, demand=demand),
+            travel_map(
+                data, mode, tapped_sites, cutoff, view, selectable=True, demand=demand
+            ),
             key=map_key,
             width="stretch",
             config=MAP_ZOOM_CONFIG,
@@ -484,7 +555,9 @@ with tab_opt:
             "people aged 50-84. Don't think that's the most important thing to score on? "
             "Don't worry - we'll explore alternatives later."
         )
-        if st.button("Run the optimiser", key="run_optimiser", icon=":material/rocket_launch:"):
+        if st.button(
+            "Run the optimiser", key="run_optimiser", icon=":material/rocket_launch:"
+        ):
             st.session_state.optimiser_ran = True
 
         if st.session_state.get("optimiser_ran"):
@@ -497,7 +570,9 @@ with tab_opt:
             )
             keys = list(OBJECTIVES)
             # The cutoff only matters to the 'far away' question, so it is named only there
-            titles = {k: OBJECTIVES[k][0] for k in keys} | {"beyond": f"Fewest people over {opt_cutoff} min away"}
+            titles = {k: OBJECTIVES[k][0] for k in keys} | {
+                "beyond": f"Fewest people over {opt_cutoff} min away"
+            }
             for col, key in zip(st.columns(len(keys)), keys):
                 title, blurb = titles[key], OBJECTIVES[key][2]
                 winner = scores.loc[scores[key].idxmin()]
@@ -527,20 +602,51 @@ with tab_opt:
             winner_sites = scores.loc[scores[pick_key].idxmin(), "sites"]
             # Both maps use the tab 1 view that shows the chosen question
             compare_view = OBJECTIVE_VIEW[pick_key]
-            st.caption(COMPARE_CAPTIONS[compare_view].format(cutoff=opt_cutoff))
+            outline_worst = pick_key == "worst"
+            st.caption(COMPARE_CAPTIONS[pick_key].format(cutoff=opt_cutoff))
+            score_fmt, gain_fmt, decimals = COMPARE_SCORES[pick_key]
+            your_score = scores.loc[
+                [s == new_sites for s in scores["sites"]], pick_key
+            ].iloc[0]
+            win_score = scores[pick_key].min()
+            gain = round(your_score - win_score, decimals)
+            if winner_sites == new_sites:
+                vs_yours = "This is your pick 🏆"
+            elif gain == 0:
+                vs_yours = "The same as your pick"
+            else:
+                vs_yours = gain_fmt.format(gain).capitalize() + " than your pick"
+            # Score in bold, then one smaller line on each side, so the two maps stay level
             left, right = st.columns(2)
             left.subheader("Your pick")
+            left.markdown(f"**{score_fmt.format(your_score, cutoff=opt_cutoff)}**")
+            left.caption(
+                f"#{rank_of(scores, new_sites, pick_key)} of {n_total:,} on this question"
+            )
             left.plotly_chart(
-                compare_map(data, opt_mode, new_sites, compare_view, opt_cutoff),
+                compare_map(
+                    data, opt_mode, new_sites, compare_view, opt_cutoff, outline_worst
+                ),
                 key="map_yours",
                 width="stretch",
                 config={"displayModeBar": False},
             )
             title = titles[pick_key]
             # "Best for the most deprived areas" already starts with "Best for"
-            right.subheader(title if title.startswith("Best for") else f"Best for: {title.lower()}")
+            right.subheader(
+                title if title.startswith("Best for") else f"Best for: {title.lower()}"
+            )
+            right.markdown(f"**{score_fmt.format(win_score, cutoff=opt_cutoff)}**")
+            right.caption(vs_yours)
             right.plotly_chart(
-                compare_map(data, opt_mode, winner_sites, compare_view, opt_cutoff),
+                compare_map(
+                    data,
+                    opt_mode,
+                    winner_sites,
+                    compare_view,
+                    opt_cutoff,
+                    outline_worst,
+                ),
                 key="map_winner",
                 width="stretch",
                 config={"displayModeBar": False},
@@ -552,13 +658,27 @@ with tab_opt:
                 f"<div class='result-line'><div class='big-number'>{n:,}</div>"
                 f"<div class='big-number-label'>{text}</div></div>"
                 for n, text in [
-                    (n_combinations(n_cand, 1), f"ways to add 1 centre<br>from {n_cand} site options"),
-                    (n_combinations(n_cand, 2), f"ways to add 2 centres<br>from {n_cand} site options"),
-                    (n_combinations(n_cand, 3), f"ways to add 3 centres<br>from {n_cand} site options"),
-                    (n_combinations(100, 5), "ways to add 5 centres<br>from 100 site options"),
+                    (
+                        n_combinations(n_cand, 1),
+                        f"ways to add 1 centre<br>from {n_cand} site options",
+                    ),
+                    (
+                        n_combinations(n_cand, 2),
+                        f"ways to add 2 centres<br>from {n_cand} site options",
+                    ),
+                    (
+                        n_combinations(n_cand, 3),
+                        f"ways to add 3 centres<br>from {n_cand} site options",
+                    ),
+                    (
+                        n_combinations(100, 5),
+                        "ways to add 5 centres<br>from 100 site options",
+                    ),
                 ]
             )
-            st.markdown(f"<div class='result-box'>{boxes}</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='result-box'>{boxes}</div>", unsafe_allow_html=True
+            )
             st.caption(
                 "Real location problems can be far bigger than this one, and can have many "
                 "competing goals. Optimisation software searches them for you and shows "
@@ -600,7 +720,9 @@ with tab_trade:
             unsafe_allow_html=True,
         )
         qs = pareto.questions(cutoffs)
-        st.markdown(f"**Which questions matter to you?** Pick up to {pareto.MAX_QUESTIONS}.")
+        st.markdown(
+            f"**Which questions matter to you?** Pick up to {pareto.MAX_QUESTIONS}."
+        )
         for row, row_title in pareto.ROWS.items():
             st.pills(
                 row_title,
@@ -640,12 +762,20 @@ with tab_trade:
 
             can_radar = len(keys) >= 3
             if can_radar:
-                view = st.segmented_control(
-                    "Show as", ["Shapes", "Lines"], default="Shapes", key="pareto_view"
-                ) or "Shapes"
+                view = (
+                    st.segmented_control(
+                        "Show as",
+                        ["Shapes", "Lines"],
+                        default="Shapes",
+                        key="pareto_view",
+                    )
+                    or "Shapes"
+                )
             else:
                 view = "Lines"
-                st.caption("Shapes need at least three questions, so this is shown as lines.")
+                st.caption(
+                    "Shapes need at least three questions, so this is shown as lines."
+                )
             kind = "radar" if view == "Shapes" else "lines"
             st.caption(
                 ("Further from the centre" if kind == "radar" else "Higher up")

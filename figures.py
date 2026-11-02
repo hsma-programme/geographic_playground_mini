@@ -206,11 +206,33 @@ def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280)
     return fig
 
 
-def compare_map(data: Data, mode, new_sites, view="time", cutoff=0, height=440) -> go.Figure:
+def _outline(data: Data, areas, width=4, colour="#000") -> go.Scattermap:
+    """A thick line round each area's outer boundary (map markers and fills can't do this)."""
+    lat, lon = [], []
+    for i in areas:
+        geom = data.geojson["features"][i]["geometry"]
+        polygons = geom["coordinates"] if geom["type"] == "MultiPolygon" else [geom["coordinates"]]
+        for polygon in polygons:
+            ring = polygon[0]
+            lon += [p[0] for p in ring] + [None]
+            lat += [p[1] for p in ring] + [None]
+    return go.Scattermap(lat=lat, lon=lon, mode="lines", line=dict(width=width, color=colour), hoverinfo="skip")
+
+
+def compare_map(
+    data: Data, mode, new_sites, view="time", cutoff=0, outline_worst=False, height=500
+) -> go.Figure:
     """Compact map, without a colour bar, used to compare 'your pick' with the optimiser's pick
-    in whichever tab 1 view suits the question being compared."""
+    in whichever tab 1 view suits the question being compared.
+
+    outline_worst=True rings the area(s) with the longest journey to the nearest centre.
+    """
     fig = travel_map(data, mode, new_sites, cutoff=cutoff, view=view, height=height)
     fig.update_traces(showscale=False, selector=dict(type="choroplethmap"))
+    if outline_worst:
+        # Added last so the trace numbers other code relies on stay the same
+        times = nearest_time(data, mode, new_sites)
+        fig.add_trace(_outline(data, np.flatnonzero(times == times.max())))
     return fig
 
 
