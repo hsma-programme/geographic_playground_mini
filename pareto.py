@@ -46,6 +46,15 @@ class Question:
     higher_better: bool = False
     fmt: object = _minutes
     note: tuple = ()  # grey lines under the axis label, where the name alone needs explaining
+    unit: str = "minutes"  # for differences; "percentage points" is the one measured as a share
+    decimals: int = 1  # for differences
+
+    def difference(self, yours, theirs) -> str:
+        """Theirs minus yours, signed, in this question's own unit."""
+        d = (theirs - yours) * (100 if self.unit == "percentage points" else 1)
+        if round(abs(d), self.decimals) == 0:
+            return "no difference"
+        return f"{'+' if d > 0 else '−'}{abs(d):,.{self.decimals}f} {self.unit}"
 
     @property
     def lines_title(self):
@@ -69,7 +78,8 @@ def questions(cutoffs) -> dict:
             Question(f"avg_{mode}", f"avg_{mode}", mode, "Shortest average journey",
                      f"average journey {name}", f"average journey {name}"),
             Question(f"beyond_{mode}", f"beyond_{mode}", mode, f"Fewest people over {cut} min away",
-                     f"people over {cut} min away {name}", f"fewest people far away {name}", fmt=_people),
+                     f"people over {cut} min away {name}", f"fewest people far away {name}", fmt=_people,
+                     unit="people", decimals=0),
             Question(f"deprived_{mode}", f"deprived_{mode}", mode, "Best for the most deprived areas",
                      f"journey in most deprived areas {name}", f"most deprived areas {name}",
                      note=("average for the 30%", "most deprived areas")),
@@ -78,12 +88,12 @@ def questions(cutoffs) -> dict:
             # By public transport some areas are unreachable and capped at 180, so the longest
             # journey never differs between options and can't be weighed
             qs.append(Question("worst_car", "worst_car", mode, "Shortest worst-case journey",
-                               "longest journey by car", "longest journey by car", fmt=lambda v: f"{v:.0f} minutes"))
+                               "longest journey by car", "longest journey by car", fmt=lambda v: f"{v:.0f} minutes", decimals=0))
         qs.append(Question(f"helped_{mode}", f"helped_{mode}", mode, "Most people helped",
-                           f"people helped {name}", f"people helped {name}", higher_better=True, fmt=_people,
+                           f"people helped {name}", f"people helped {name}", higher_better=True, fmt=_people, unit="people", decimals=0,
                            note=("people whose nearest", "centre gets quicker")))
     qs.append(Question("busiest_car", "busiest_car", "service", "Most even workload",
-                       "busiest centre's share of patients", "even workload", fmt=_percent,
+                       "busiest centre's share of patients", "even workload", fmt=_percent, unit="percentage points",
                        note=("patients go to their", "nearest centre, by car")))
     return {q.key: q for q in qs}
 
@@ -161,16 +171,37 @@ def question_winners(ss, keys, your_sites=()):
     return list(dict.fromkeys(ids))
 
 
+def _beater_row(ss, keys, pick):
+    """An unbeaten option that beats your pick: the one best on the first question, or None."""
+    if pick["is_pareto_optimal"]:
+        return None
+    q = ss.questions[keys[0]]
+    beaters = _front(ss)
+    beaters = beaters[beaters["option_id"].isin(pick["dominated_by"])]
+    return beaters.sort_values(q.column, ascending=not q.higher_better).iloc[0]
+
+
 def verdict(ss, keys, your_sites):
     """(n_unbeaten, n_total, name of an option that beats your pick, or None)."""
-    front = _front(ss)
+    beater = _beater_row(ss, keys, _pick_row(ss, your_sites))
+    return len(_front(ss)), len(ss.solution_df), None if beater is None else beater["option_name"]
+
+
+def compare_table(ss, keys, your_sites):
+    """Your pick beside the option that beats it, on each chosen question (None if nothing beats it)."""
     pick = _pick_row(ss, your_sites)
-    beater = None
-    if not pick["is_pareto_optimal"]:
-        q = ss.questions[keys[0]]
-        beaters = front[front["option_id"].isin(pick["dominated_by"])]
-        beater = beaters.sort_values(q.column, ascending=not q.higher_better).iloc[0]["option_name"]
-    return len(front), len(ss.solution_df), beater
+    beater = _beater_row(ss, keys, pick)
+    if beater is None:
+        return None
+    rows = {}
+    for k in keys:
+        q = ss.questions[k]
+        rows[q.lines_title] = [
+            q.fmt(pick[q.column]),
+            q.fmt(beater[q.column]),
+            q.difference(pick[q.column], beater[q.column]),
+        ]
+    return pd.DataFrame(rows, index=["Your pick", beater["option_name"], "Difference"]).T
 
 
 def _scaled(ss, q, value):

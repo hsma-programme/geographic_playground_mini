@@ -476,10 +476,12 @@ with tab_trade:
             if beater is None:
                 st.success(f"Your pick, {label(data, new_sites)}, is one of them. 🏆")
             else:
-                st.warning(
+                verdict_col, table_col = st.columns([2, 3], vertical_alignment="center")
+                verdict_col.warning(
                     f"**{beater}** beats your pick, {label(data, new_sites)}, "
                     "on every question you picked."
                 )
+                table_col.table(pareto.compare_table(ss, keys, new_sites))
 
             can_radar = len(keys) >= 3
             if can_radar:
@@ -490,17 +492,23 @@ with tab_trade:
                 view = "Lines"
                 st.caption("Shapes need at least three questions, so this is shown as lines.")
             kind = "radar" if view == "Shapes" else "lines"
+            st.caption(
+                ("Further from the centre" if kind == "radar" else "Higher up")
+                + " is always better. Each colour is an option nothing else beats on every "
+                "question; the yellow dashed line is your pick. A bigger shape is not "
+                "automatically better, so compare question by question."
+            )
+            st.caption(
+                "**Using the key:** it lists every option nothing else beats. To start with, only "
+                "the ones that win on at least one of your questions are switched on (their names say "
+                '"wins on ..."), plus your pick if it is one of them. Tap a name in the key to show or '
+                "hide it, or double-tap one to see it on its own."
+            )
             st.plotly_chart(
                 pareto.trade_off_chart(ss, keys, new_sites, kind),
                 key=f"pareto_{kind}",
                 width="stretch",
                 config={"displayModeBar": False},
-            )
-            st.caption(
-                ("Further from the centre" if kind == "radar" else "Higher up")
-                + " is always better. Each colour is an option nothing else beats on every "
-                "question; the yellow dashed line is your pick. Tap a name to show or hide "
-                "it. A bigger shape is not automatically better, so compare question by question."
             )
 # ---------------------------------------------------------------- footer
 st.divider()
