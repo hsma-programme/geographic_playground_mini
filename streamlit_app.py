@@ -179,9 +179,11 @@ def on_sites_change():
 TAPPABLE_TRACES = {2, 3, 4}
 
 
-def on_map_click():
+def on_map_click(key):
     """Tapping a site on the map adds it, or removes it if already chosen."""
-    points = st.session_state[f"main_map_{st.session_state.map_taps}"].selection.points
+    # Read the map that was tapped: a quick second tap can land on the previous map
+    # before the rerun replaces it, by which point map_taps has already moved on
+    points = st.session_state[key].selection.points
     tapped = [p["customdata"] for p in points if p["curve_number"] in TAPPABLE_TRACES]
     st.session_state.map_taps += 1
     if not tapped:
@@ -292,14 +294,20 @@ with tab_build:
         """
         ### Where should the next diagnostic centre go?
 
-        Devon has **4 community diagnostic centres**, and **you have budget for up to 3 more**.
-        Tap a grey dot on the map, or a town in the list, to open a centre there,
-        and watch the red "too far" areas shrink.
+        In this imaginary version of Devon there are **4 community diagnostic centres**,
+        and **you have budget for up to 3 more**.
+        Commissioners have asked you to improve access for those aged 50-84 specifically,
+        so those are the population numbers used.
 
-        This is called *location optimisation* - using a computer to
-        <span style="color:#ffe600;font-weight:700">test where a service should go before anything is built</span>.
+        This is called *what-if analysis* - trying out options on a computer
+        <span style="color:#ffe600;font-weight:700">to see what would happen before any decision is made</span>.
         """,
         unsafe_allow_html=True,
+    )
+    st.info(
+        'Tap a grey dot on the map, or a town in the list, to open a centre there, '
+        'and watch the red "too far" areas shrink.',
+        icon=":material/touch_app:",
     )
 
     map_col, ctrl_col = st.columns([3, 2], gap="large")
@@ -401,19 +409,12 @@ with tab_build:
 
     with map_col:
         if view == "time":
-            st.caption(
-                "Hover over an area to see its journey time. "
-                "Tap a dot to add or remove a centre, or use the buttons on the right."
-            )
+            st.caption("Hover over an area to see its journey time.")
         elif view == "deprived":
-            st.caption(
-                "Only the most deprived third of areas are coloured. Hover to see a journey time. "
-                "Tap a dot to add or remove a centre, or use the buttons on the right."
-            )
+            st.caption("Only the most deprived third of areas are coloured. Hover to see a journey time.")
         elif view == "gain":
             st.caption(
-                "Darker areas gain more minutes from your new centres; uncoloured areas are no quicker. "
-                "Tap a dot to add or remove a centre, or use the buttons on the right."
+                "Darker areas gain more minutes from your new centres; uncoloured areas are no quicker."
                 + ("" if has_new else " Add a centre to see who gains.")
             )
         elif view == "nearest":
@@ -422,20 +423,17 @@ with tab_build:
             st.caption(
                 "Each colour is the area closest to one centre - warm colours are your new ones. "
                 f"The busiest centre is {busiest}, with {shares[busiest]:.0%} of patients. "
-                "Hover over an area to see which. "
-                "Tap a dot to add or remove a centre, or use the buttons on the right."
+                "Hover over an area to see which."
             )
         else:
-            st.caption(
-                f"Red areas are more than {cutoff} minutes from the nearest centre. "
-                "Tap a dot to add or remove a centre, or use the buttons on the right."
-            )
+            st.caption(f"Red areas are more than {cutoff} minutes from the nearest centre.")
+        map_key = f"main_map_{st.session_state.map_taps}"
         st.plotly_chart(
             travel_map(data, mode, tapped_sites, cutoff, view, selectable=True, demand=demand),
-            key=f"main_map_{st.session_state.map_taps}",
+            key=map_key,
             width="stretch",
             config={"displayModeBar": False},
-            on_select=on_map_click,
+            on_select=lambda key=map_key: on_map_click(key),
             selection_mode="points",
         )
 
@@ -453,7 +451,11 @@ with tab_opt:
         st.markdown(
             f"You chose **{label(data, new_sites)}**. Is that the best place? "
             f"There are **{n_total:,}** ways to place {n_new} new "
-            f"centre{'s' if n_new > 1 else ''} - a computer can try them all."
+            f"centre{'s' if n_new > 1 else ''} - a computer can try them all.\n\n"
+            "This is called *location optimisation* - a computer "
+            "<span style='color:#ffe600;font-weight:700'>checks every option and finds the best one "
+            "for the goal you choose</span>.",
+            unsafe_allow_html=True,
         )
         st.caption(
             f"Scored on journeys {pareto.MODE_NAME[mode]} for {who.lower()}, with more than "
@@ -544,6 +546,17 @@ with tab_trade:
             better on **every** question you care about. The few left each win on
             something, so choosing between them is a judgement for people, not computers.
             """
+        )
+        n_options = n_combinations(len(data.candidates), len(new_sites))
+        n_pairs = n_options * (n_options - 1) // 2
+        st.markdown(
+            "This is called *multi-objective optimisation*. With one question, a computer can simply "
+            "put every option in order. With several there is no single order: "
+            "<span style='color:#ffe600;font-weight:700'>every option has to be checked against every "
+            "other on every question</span>. "
+            f"For {len(new_sites)} new centre{'s' if len(new_sites) > 1 else ''} that's "
+            f"{n_pairs:,} pairs for each question - easy for a computer, far too much to do by hand.",
+            unsafe_allow_html=True,
         )
         qs = pareto.questions(cutoffs)
         st.markdown(f"**Which questions matter to you?** Pick up to {pareto.MAX_QUESTIONS}.")

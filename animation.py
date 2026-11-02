@@ -75,14 +75,32 @@ body{margin:0;background:transparent;color:#fff;font-family:'Space Grotesk',sans
 #bar{height:6px;background:#333;border-radius:3px;margin:0 0 8px;}
 #fill{height:100%%;width:0;background:#1fb1b9;border-radius:3px;}
 #ctl{height:%dpx;}
-button{background:#2b2b2b;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 16px;font-size:16px;cursor:pointer;}
+button{background:#2b2b2b;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 16px;font-size:16px;cursor:pointer;margin-right:8px;}
+button.on{background:#1fb1b9;border-color:#1fb1b9;}
+#toast{position:fixed;z-index:10;right:16px;bottom:%dpx;max-width:340px;padding:14px 18px;border-radius:8px;
+  background:#262730;border-left:4px solid #1fb1b9;box-shadow:0 4px 16px rgba(0,0,0,.5);
+  font-size:18px;line-height:1.4;opacity:0;transform:translateY(12px);transition:opacity .4s,transform .4s;pointer-events:none;}
+#toast.show{opacity:1;transform:none;}
 """
 
 # Placeholder tokens are swapped in with str.replace, so the JS can keep literal braces
 PAGE_JS = """
 var P = __PAYLOAD__;
 var gd = document.getElementById('map');
-var i = 0, playing = true, timer = null;
+var i = 0, playing = true, looping = false, timer = null, toastTimer = null;
+var toggleBtn = document.getElementById('toggle'), loopBtn = document.getElementById('loop');
+var toast = document.getElementById('toast');
+function showToast() {
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 8000);
+}
+function setPlaying(on) {
+  playing = on;
+  toggleBtn.textContent = playing ? 'Pause' : (i === 0 ? 'Play again' : 'Play');
+  clearTimeout(timer);
+  if (playing) { toast.classList.remove('show'); tick(); }
+}
 function show(k) {
   Plotly.restyle(gd, {z: [P.z[k]]}, [0]);
   Plotly.restyle(gd, {lat: [P.lat[k], P.lat[k]], lon: [P.lon[k], P.lon[k]]}, [3, 4]);  // outline + marker
@@ -95,13 +113,16 @@ function tick() {
   show(i);
   var last = (i === P.z.length - 1);
   i = last ? 0 : i + 1;
+  // Stops on the winner unless looping is on (for leaving it running on the stand)
+  if (last && !looping) { setPlaying(false); showToast(); return; }
   if (playing) timer = setTimeout(tick, last ? 3500 : P.duration);
 }
-document.getElementById('toggle').onclick = function () {
-  playing = !playing;
-  this.textContent = playing ? 'Pause' : 'Play';
-  clearTimeout(timer);
-  if (playing) tick();
+toggleBtn.onclick = function () { setPlaying(!playing); };
+loopBtn.onclick = function () {
+  looping = !looping;
+  this.classList.toggle('on', looping);
+  this.textContent = looping ? 'Loop: on' : 'Loop: off';
+  if (looping && !playing) setPlaying(true);
 };
 tick();
 """
@@ -124,11 +145,13 @@ def render_optimiser_animation(data: Data, mode, scores, objective="avg"):
     html = (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap'>"
-        f"<style>{PAGE_CSS % (HEADER_HEIGHT, FOOTER_HEIGHT)}</style></head><body>"
+        f"<style>{PAGE_CSS % (HEADER_HEIGHT, FOOTER_HEIGHT, FOOTER_HEIGHT + 80)}</style></head><body>"
         "<div id='hdr'><div id='trying'></div><div id='best'></div></div>"
         "<div id='bar'><div id='fill'></div></div>"
         f"{map_html}"
-        "<div id='ctl'><button id='toggle'>Pause</button></div>"
+        "<div id='ctl'><button id='toggle'>Pause</button><button id='loop'>Loop: off</button></div>"
+        "<div id='toast'><b>Done!</b> Scroll down to see how a different question "
+        "can pick a different winner &darr;</div>"
         f"<script>{PAGE_JS.replace('__PAYLOAD__', json.dumps(payload))}</script>"
         "</body></html>"
     )
