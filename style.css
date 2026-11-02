@@ -84,7 +84,8 @@ section[data-testid="stSidebar"] h3 {
 
 section[data-testid="stSidebar"] hr {
 	margin-top: 0.8rem;
-	margin-bottom: 0.8rem;
+	/* Larger than the top margin to offset the h3 pull-up above, leaving a visible gap */
+	margin-bottom: 1.6rem;
 }
 
 /* Narrower sidebar. */

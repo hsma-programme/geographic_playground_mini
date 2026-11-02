@@ -133,7 +133,7 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
         gains = [series[i - 1] - series[i] for i in range(1, len(series))]
         y_title = f"Extra people within {cutoff} min"
         fmt = lambda g: f"{g / 1000:.1f}k" if g >= 50 else "0"
-        say = lambda g: f"{round(g, -2):,.0f} people within {cutoff} min"
+        say = lambda g: f"{round(g, -2):,.0f} more people within {cutoff} min"
         say_last = say
     elif view == "time":
         series = best["avg"]
@@ -155,7 +155,8 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
     nonzero = [i for i, g in enumerate(gains) if round(g, -2) > 0 and g >= 50]
     if view == "cutoff" and len(nonzero) < len(gains):
         k = nonzero[-1]
-        later = f" The {ORDINALS[k]} {verb} {say_last(gains[k])}. After that, none." if k else " After that, none."
+        no_benefit = " After that, there is no benefit on this measure to adding more centres."
+        later = f" The {ORDINALS[k]} {verb} {say_last(gains[k])}.{no_benefit}" if k else no_benefit
     else:
         later = f" The {ORDINALS[-1]} {verb} {say_last(gains[-1])}."
     st.markdown(first + later)
@@ -249,10 +250,11 @@ with st.sidebar:
                 label_visibility="collapsed",
                 persist_state="page",
             )
-        if st.session_state.view == "cutoff":
-            st.slider(
-                "How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff", persist_state="page"
-            )
+            # The slider sits under the travel mode it applies to, in the "too far" views only
+            if radio_mode == st.session_state.mode and st.session_state.view == "cutoff":
+                st.slider(
+                    "How long is too long to travel? (minutes)", 15, 120, step=5, key="cutoff", persist_state="page"
+                )
 
         st.divider()
         st.subheader(
@@ -271,6 +273,10 @@ with st.sidebar:
             on_change=on_sites_change,
             label_visibility="collapsed",
             persist_state="page",
+        )
+        st.caption(
+            "This doesn't change the map directly. Use it together with the options above: "
+            "it changes the numbers, the chart and the optimiser."
         )
 
 # ---------------------------------------------------------------- tab 1
