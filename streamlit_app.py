@@ -114,7 +114,7 @@ GUIDE_STEPS = {
             "even for questions where less is better, like fewer people far away."
         ),
         (
-            "<b>A point shows what an option is best at.</b> Option A reaches furthest on "
+            "<b>A point shows how an option scores, and what it's best and worst at.</b> Option A reaches furthest on "
             "question 1 but is close to the centre on question 3. Option B is the opposite. "
             "Neither wins on everything: that's the trade-off."
         ),
@@ -200,6 +200,16 @@ def rank_colour(rank, total):
 
 def other_options(n):
     return f"{n} other option{'s' if n > 1 else ''}"
+
+
+def number_boxes(items):
+    """A row of big numbers, each with a label underneath: [(number, label html), ...]."""
+    boxes = "".join(
+        f"<div class='result-line'><div class='big-number'>{n:,}</div>"
+        f"<div class='big-number-label'>{text}</div></div>"
+        for n, text in items
+    )
+    st.markdown(f"<div class='result-box'>{boxes}</div>", unsafe_allow_html=True)
 
 
 def render_what_if(mode, cutoff, demand, view, n_chosen):
@@ -736,10 +746,8 @@ with tab_opt:
 
             st.subheader("Why computers?")
             n_cand = len(data.candidates)
-            boxes = "".join(
-                f"<div class='result-line'><div class='big-number'>{n:,}</div>"
-                f"<div class='big-number-label'>{text}</div></div>"
-                for n, text in [
+            number_boxes(
+                [
                     (
                         n_combinations(n_cand, 1),
                         f"ways to add 1 centre<br>from {n_cand} site options",
@@ -757,9 +765,6 @@ with tab_opt:
                         "ways to add 5 centres<br>from 100 site options",
                     ),
                 ]
-            )
-            st.markdown(
-                f"<div class='result-box'>{boxes}</div>", unsafe_allow_html=True
             )
             st.caption(
                 "Real location problems can be far bigger than this one, and can have many "
@@ -789,23 +794,11 @@ with tab_trade:
             """
             ### There's rarely one best answer
 
-            Most ways of placing your centres can be ruled out, because another way is
-            at least as good on every question you care about, and better on at least one.
-            The few left each win on something, so choosing between them is a judgement
-            for people, not computers.
+            Most ways of placing your centres can be ruled out, because another way does
+            at least as well on every question you care about. The few left are trade-offs:
+            to do better on one question, you'd have to do worse on another. Choosing between
+            them is a judgement for people, not computers.
             """
-        )
-        n_options = n_combinations(len(data.candidates), len(new_sites))
-        n_pairs = n_options * (n_options - 1) // 2
-        st.markdown(
-            "This is called *multi-objective optimisation*. With one question, a computer can simply "
-            "put every option in order. With several there is no single order: "
-            "<span style='color:#ffe600;font-weight:700'>every option has to be checked against every "
-            "other on every question</span>. "
-            f"Choosing {len(new_sites)} new centre{'s' if len(new_sites) > 1 else ''} from "
-            f"{len(data.candidates)} possible sites gives {n_options:,} options, so that's "
-            f"{n_pairs:,} pairs for each question - easy for a computer, far too much to do by hand.",
-            unsafe_allow_html=True,
         )
         qs = pareto.questions(cutoffs)
         n_default = sum(len(v) for v in pareto.DEFAULT_QUESTIONS.values())
@@ -837,19 +830,19 @@ with tab_trade:
             n_front, n_total, beater = pareto.verdict(ss, keys, new_sites)
             st.markdown(
                 f"<div class='result-box'><div class='result-line'>"
-                f"<div class='big-number'>{n_front:,}</div>"
-                f"<div class='big-number-label'>of {n_total:,} options can't be ruled out "
-                f"on the questions you picked</div>"
+                f"<div class='big-number'>{n_front:,}<span class='big-number-of'> of {n_total:,} options "
+                + ("can't be ruled out" if n_front == 1 else "are defensible choices")
+                + " on the questions you picked</span></div>"
                 + (
                     "<div class='front-meaning'>It's at least as good as every other option on "
                     "every question you picked, so it's the clear choice.</div>"
                     if n_front == 1
-                    else "<div class='front-meaning'>None of them is beaten: no other option is at "
-                    "least as good on every question and better on at least one. So any one of "
-                    "them is a defensible choice, depending on which question matters most to you.</div>"
+                    else "<div class='front-meaning'><b>None of them can be ruled out</b>: no other option "
+                    "is <i>at least as good</i> on every question and <i>better on at least one</i>.</div>"
                 )
                 + (
-                    ""
+                    f"<div class='pick-made'>...and your pick, {label(data, new_sites)}, "
+                    "is one of them 🏆</div>"
                     if beater is None
                     else f"<div class='pick-missed'>...but your pick, {label(data, new_sites)}, "
                     "isn't one of them</div>"
@@ -857,9 +850,7 @@ with tab_trade:
                 + "</div></div>",
                 unsafe_allow_html=True,
             )
-            if beater is None:
-                st.success(f"Your pick, {label(data, new_sites)}, is one of them. 🏆")
-            else:
+            if beater is not None:
                 verdict_col, table_col = st.columns([2, 3], vertical_alignment="center")
                 verdict_col.warning(
                     f"**{beater}** is at least as good as your pick, {label(data, new_sites)}, "
@@ -867,6 +858,13 @@ with tab_trade:
                 )
                 table_col.table(pareto.compare_table(ss, keys, new_sites))
 
+            st.markdown("### Compare the options question by question")
+            st.markdown(
+                "Ordinary charts struggle with this. A bar chart can show one question at a time, "
+                "and a scatter plot two. Questions can also be measured in different ways - "
+                "minutes, numbers of people, percentages - and over very different ranges. So these "
+                "charts put every question side by side, each on its own scale from worst to best."
+            )
             can_radar = len(keys) >= 3
             if can_radar:
                 view = (
@@ -915,6 +913,34 @@ with tab_trade:
                 "the ones that win on at least one of your questions are switched on (their names say "
                 '"wins on ..."), plus your pick if it is one of them. Tap a name in the key to show or '
                 "hide it, or double-tap one to see it on its own."
+            )
+
+            st.subheader("Too many to check by hand")
+            n_new = len(new_sites)
+            n_options = n_combinations(len(data.candidates), n_new)
+            n_pairs = n_options * (n_options - 1) // 2
+            number_boxes(
+                [
+                    (
+                        n_options,
+                        (
+                            f"ways to add {n_new} centre{'s' if n_new > 1 else ''}"
+                            f"<br>from {len(data.candidates)} site options"
+                        ),
+                    ),
+                    (n_pairs, "pairs of options<br>to compare"),
+                    (
+                        n_pairs * len(keys),
+                        f"comparisons for the<br>{len(keys)} questions you picked",
+                    ),
+                ]
+            )
+            st.markdown(
+                "This is called *multi-objective optimisation*. With one question, a computer can simply "
+                "put every option in order. With several there is no single order, so "
+                "<span style='color:#ffe600;font-weight:700'>every option has to be checked against every "
+                "other on every question</span> - easy for a computer, far too much to do by hand.",
+                unsafe_allow_html=True,
             )
 # ---------------------------------------------------------------- footer
 st.divider()

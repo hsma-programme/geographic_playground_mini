@@ -287,18 +287,25 @@ h1,
 	border-radius: 0.5rem;
 	background-color: rgba(255, 255, 255, 0.04);
 }
+/* Tab 3: "of 91 options" beside the big count, in the body font */
+.big-number-of {
+	font-family: var(--body-font);
+	font-size: 1.25rem;
+}
 /* Tab 3: what the "can't be ruled out" count means for choosing */
 .front-meaning {
 	margin-top: 0.5rem;
 	font-size: 1.05rem;
 }
-/* Tab 3: under the "can't be ruled out" count when the visitor's pick is ruled out */
-.pick-missed {
+/* Tab 3: under the "can't be ruled out" count, saying whether the visitor's pick is ruled out */
+.pick-missed,
+.pick-made {
 	margin-top: 0.5rem;
 	color: #ffe600;
 	font-weight: 700;
 	font-size: 1.15rem;
 }
+.pick-made { color: #3dd56d; }
 
 /* ---- Specific to this app ---- */
 
