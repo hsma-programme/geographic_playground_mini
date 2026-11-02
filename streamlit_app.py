@@ -823,8 +823,13 @@ with tab_trade:
             st.caption(
                 ("Further from the centre" if kind == "radar" else "Higher up")
                 + " is always better. Each colour is an option that can't be ruled out; "
-                "the yellow dashed line is your pick. A bigger shape is not "
-                "automatically better, so compare question by question."
+                "the yellow dashed line is your pick. "
+                + (
+                    "A bigger shape is not automatically better, so compare question by question."
+                    if kind == "radar"
+                    else "The faint grey lines are every other option - the ones that can be "
+                    "ruled out - so you can see how much each question varies."
+                )
             )
             st.caption(
                 "**Using the key:** it lists every option that can't be ruled out. To start with, only "
@@ -849,7 +854,8 @@ footer_text.markdown(
     f"""
     **Want to learn how to build tools like this?**
 
-    HSMA trains people working in health and social care in modelling, geographic
+    The Health Service Modelling Associates (HSMA) programme trains people working in
+    health and social care in modelling, geographic
     analysis and data science. Scan the code or visit the
     [HSMA website]({HSMA_URL}) to find out more, try the
     [full geographic playground]({FULL_PLAYGROUND_URL}), or
