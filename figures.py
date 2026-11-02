@@ -135,7 +135,8 @@ def travel_map(
         )
     else:
         # "time" for everyone, or "deprived": the same gradient for IMD deciles 1-3 only
-        idx = np.flatnonzero(data.imd <= DEPRIVED_MAX_DECILE) if view == "deprived" else np.arange(len(times))
+        deprived = view == "deprived"
+        idx = np.flatnonzero(data.imd <= DEPRIVED_MAX_DECILE) if deprived else np.arange(len(times))
         choropleth = go.Choroplethmap(
             geojson=data.geojson, locations=idx, z=times[idx].round(1),
             zmin=0, zmax=TIME_MAX[mode], colorscale=TIME_COLORSCALE,
@@ -143,7 +144,10 @@ def travel_map(
             marker=dict(opacity=0.75, line_width=0),
             selected=dict(marker=dict(opacity=0.75)),
             unselected=dict(marker=dict(opacity=0.75)),
-            hovertemplate="%{z:.0f} minutes to nearest centre<extra></extra>",
+            customdata=data.imd[idx] if deprived else None,
+            hovertemplate="%{z:.0f} minutes to nearest centre"
+            + ("<br>IMD decile %{customdata} (1 = most deprived)" if deprived else "")
+            + "<extra></extra>",
         )
     fig = go.Figure([choropleth, *_site_traces(data, new_sites, selectable)])
     fig.update_layout(

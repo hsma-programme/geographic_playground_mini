@@ -560,8 +560,9 @@ with tab_trade:
             ### There's rarely one best answer
 
             Most ways of placing your centres can be ruled out, because another way is
-            better on **every** question you care about. The few left each win on
-            something, so choosing between them is a judgement for people, not computers.
+            at least as good on every question you care about, and better on at least one.
+            The few left each win on something, so choosing between them is a judgement
+            for people, not computers.
             """
         )
         n_options = n_combinations(len(data.candidates), len(new_sites))
@@ -571,7 +572,8 @@ with tab_trade:
             "put every option in order. With several there is no single order: "
             "<span style='color:#ffe600;font-weight:700'>every option has to be checked against every "
             "other on every question</span>. "
-            f"For {len(new_sites)} new centre{'s' if len(new_sites) > 1 else ''} that's "
+            f"Choosing {len(new_sites)} new centre{'s' if len(new_sites) > 1 else ''} from "
+            f"{len(data.candidates)} possible sites gives {n_options:,} options, so that's "
             f"{n_pairs:,} pairs for each question - easy for a computer, far too much to do by hand.",
             unsafe_allow_html=True,
         )
@@ -600,8 +602,8 @@ with tab_trade:
             st.markdown(
                 f"<div class='result-box'><div class='result-line'>"
                 f"<div class='big-number'>{n_front:,}</div>"
-                f"<div class='big-number-label'>of {n_total:,} options are not beaten on every "
-                f"question you picked</div></div></div>",
+                f"<div class='big-number-label'>of {n_total:,} options can't be ruled out "
+                f"on the questions you picked</div></div></div>",
                 unsafe_allow_html=True,
             )
             if beater is None:
@@ -609,8 +611,8 @@ with tab_trade:
             else:
                 verdict_col, table_col = st.columns([2, 3], vertical_alignment="center")
                 verdict_col.warning(
-                    f"**{beater}** beats your pick, {label(data, new_sites)}, "
-                    "on every question you picked."
+                    f"**{beater}** is at least as good as your pick, {label(data, new_sites)}, "
+                    "on every question you picked, and better on at least one."
                 )
                 table_col.table(pareto.compare_table(ss, keys, new_sites))
 
@@ -625,12 +627,12 @@ with tab_trade:
             kind = "radar" if view == "Shapes" else "lines"
             st.caption(
                 ("Further from the centre" if kind == "radar" else "Higher up")
-                + " is always better. Each colour is an option nothing else beats on every "
-                "question; the yellow dashed line is your pick. A bigger shape is not "
+                + " is always better. Each colour is an option that can't be ruled out; "
+                "the yellow dashed line is your pick. A bigger shape is not "
                 "automatically better, so compare question by question."
             )
             st.caption(
-                "**Using the key:** it lists every option nothing else beats. To start with, only "
+                "**Using the key:** it lists every option that can't be ruled out. To start with, only "
                 "the ones that win on at least one of your questions are switched on (their names say "
                 '"wins on ..."), plus your pick if it is one of them. Tap a name in the key to show or '
                 "hide it, or double-tap one to see it on its own."
