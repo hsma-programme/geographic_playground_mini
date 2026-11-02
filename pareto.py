@@ -375,6 +375,11 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
         for trace in fig.data:
             if trace.theta is not None:
                 trace.theta = labels + labels[:1]
+            # lokigi also labels the filled area (name and sites), but plotly adds a
+            # pale side box repeating the name, which reads as a ghost. namelength=0
+            # still leaves a 6px strip of it, so label points only: they list the
+            # sites too
+            trace.hoveron = "points"
     else:
         # tickangle=0: plotly tilts crowded labels, which makes the multi-line ones unreadable
         fig.update_xaxes(ticktext=labels, tickangle=0)

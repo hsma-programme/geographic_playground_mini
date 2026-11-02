@@ -258,7 +258,7 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
     }[view]
     # Each bar compares the best k sites with the best k + 1, which needn't share any
     # sites, so the text talks about how many centres rather than which one to open next
-    first = f"Adding one new centre, in the best place, {verb} {say(gains[0])}."
+    first = f"Adding one new centre, in the best place for this measure, {verb} {say(gains[0])}."
     nonzero = [i for i, g in enumerate(gains) if round(g, -2) > 0 and g >= 50]
     if view == "cutoff" and len(nonzero) < len(gains):
         k = nonzero[-1]
