@@ -207,9 +207,6 @@ Chrome for car and public transport in all three views, with the sentence number
 run. Not verified: the "nobody is too far" message (cutoff view with a cutoff so high that nobody is beyond it),
 the 2036 demand, touch, and narrow screens.
 
-To confirm: the footer links in `streamlit_app.py` (`FULL_PLAYGROUND_URL`, `CODE_URL`) point at the Bergam0t
-GitHub repos, since the full playground has no known deployed URL. The DES mini links to `hsma-programme/...`
-instead; update both if these move.
 
 ## Suggested next steps
 

@@ -37,8 +37,8 @@ from figures import (
 )
 
 HSMA_URL = "https://hsma.co.uk"
-FULL_PLAYGROUND_URL = "https://github.com/Bergam0t/geographic_or_ds_playground"
-CODE_URL = "https://github.com/Bergam0t/geographic_playground_mini"
+FULL_PLAYGROUND_URL = "https://github.com/hsma-programme/geographic_or_ds_playground"
+CODE_URL = "https://github.com/hsma-programme/geographic_playground_mini"
 
 st.set_page_config(
     page_title="Geographic Playground",
@@ -524,7 +524,14 @@ with tab_build:
         map_key = f"main_map_{st.session_state.map_taps}"
         st.plotly_chart(
             travel_map(
-                data, mode, tapped_sites, cutoff, view, selectable=True, demand=demand, legend=True
+                data,
+                mode,
+                tapped_sites,
+                cutoff,
+                view,
+                selectable=True,
+                demand=demand,
+                legend=True,
             ),
             key=map_key,
             width="stretch",
