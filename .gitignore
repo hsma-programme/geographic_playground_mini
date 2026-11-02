@@ -4,3 +4,4 @@
 .venv
 out/
 *_profile/
+static/optimiser_*.html

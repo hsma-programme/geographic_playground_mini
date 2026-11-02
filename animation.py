@@ -7,14 +7,17 @@ single static map and a few lines of JS step through precomputed colours with
 Plotly.restyle on a timer. That also lets us draw a proper header and progress bar.
 """
 
+import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
-import streamlit.components.v1 as components
+import streamlit as st
 
 from core import Data, label, nearest_time
 from figures import travel_map
 
+STATIC_DIR = Path(__file__).parent / "static"
 MAP_HEIGHT = 560
 HEADER_HEIGHT = 96
 FOOTER_HEIGHT = 44
@@ -65,6 +68,7 @@ def build_payload(data: Data, mode, scores, objective, seed=7) -> dict:
 
 
 PAGE_CSS = """
+html,body{overflow:hidden;}
 body{margin:0;background:transparent;color:#fff;font-family:'Space Grotesk',sans-serif;}
 #hdr{height:%dpx;box-sizing:border-box;padding:6px 4px;font-size:21px;line-height:1.5;}
 #hdr .dim{opacity:.65;font-size:16px;margin-left:8px;}
@@ -128,5 +132,14 @@ def render_optimiser_animation(data: Data, mode, scores, objective="avg"):
         f"<script>{PAGE_JS.replace('__PAYLOAD__', json.dumps(payload))}</script>"
         "</body></html>"
     )
-    components.html(html, height=HEADER_HEIGHT + MAP_HEIGHT + FOOTER_HEIGHT + 20)
+
+    # Embedded by URL, not inline: components.html uses an iframe srcdoc, in which the
+    # map's tiles and areas never finish loading (the map stays blank). The file is
+    # named by content hash so each combination of choices gets its own page.
+    STATIC_DIR.mkdir(exist_ok=True)
+    name = f"optimiser_{hashlib.md5(html.encode()).hexdigest()[:12]}.html"
+    path = STATIC_DIR / name
+    if not path.exists():
+        path.write_text(html, encoding="utf8")
+    st.iframe(f"/app/static/{name}", height=HEADER_HEIGHT + MAP_HEIGHT + FOOTER_HEIGHT + 40)
     return html

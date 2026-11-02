@@ -11,5 +11,8 @@ primaryColor = "#ffffff"
 [client]
 toolbarMode = "viewer"
 
+[server]
+enableStaticServing = true
+
 [browser]
 gatherUsageStats = false
