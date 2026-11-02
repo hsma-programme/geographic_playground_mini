@@ -80,18 +80,31 @@ def _scaled(ss, key, value):
 
 
 # Extra grey line under an axis label, where the name alone needs explaining
-NOTES = {"deprived": "average for the 30% most deprived areas"}
+NOTES = {"deprived": ("average for the 30%", "most deprived areas")}
 
 
-def _axis_label(ss, key) -> str:
+# Characters before a legend entry wraps; wide enough that most options sit on one line,
+# since a long legend scrolls inside the chart
+LEGEND_WRAP = 40
+
+# Radar spokes say what is being minimised, since the shape reads as "bigger is better"
+RADAR_TITLES = {"deprived": "Minimising journey in most deprived areas"}
+
+
+def _axis_label(ss, key, kind="lines") -> str:
     """Spoke / axis label: the question, then its best and worst value across all options."""
     metric = ss.metric_by_key[key]
+    title, width = metric.label, 20
+    if kind == "radar":
+        title = RADAR_TITLES.get(key) or f"Minimising {title[0].lower()}{title[1:]}"
+        width = 26
     col = ss.solution_df[key]
     # All questions are lower-is-better, so the best is the smallest
     fmt = (lambda v: f"{v:,.0f}") if key == "beyond" else (lambda v: f"{v:.1f} minutes")
-    note = f"{NOTES[key]}<br>" if key in NOTES else ""
+    # The line chart's columns are narrower, so the note breaks onto two lines there
+    note = ("<br>" if kind == "lines" else " ").join(NOTES[key]) + "<br>" if key in NOTES else ""
     return (
-        textwrap.fill(metric.label, width=20).replace("\n", "<br>")
+        textwrap.fill(title, width=width).replace("\n", "<br>")
         + "<br><span style='font-size:10px;color:gray'>"
         + note
         + f"best {fmt(col.min())}, worst {fmt(col.max())}<br>of all {len(col):,} options</span>"
@@ -106,7 +119,7 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
         name_col="option_name",
         interactive=True,
         initially_shown=shown,
-        legend_wrap_at=22,
+        legend_wrap_at=LEGEND_WRAP,
         title="",
         caption="",
     )
@@ -117,13 +130,14 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
     )
 
     # lokigi's own best/worst text has no units and 2dp, so write the axis labels here
-    labels = [_axis_label(ss, k) for k in keys]
+    labels = [_axis_label(ss, k, kind) for k in keys]
     if kind == "radar":
         for trace in fig.data:
             if trace.theta is not None:
                 trace.theta = labels + labels[:1]
     else:
-        fig.update_xaxes(ticktext=labels)
+        # tickangle=0: plotly tilts crowded labels, which makes the multi-line ones unreadable
+        fig.update_xaxes(ticktext=labels, tickangle=0)
         for trace in fig.data:
             if trace.showlegend is False:  # the one trace of ruled-out options
                 trace.opacity = 0.3
@@ -140,7 +154,10 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
         for k in keys
     ]
     style = dict(
-        name=YOUR_PICK,
+        # Wrapped like lokigi's own legend entries (legend_wrap_at above)
+        name="<br>".join(
+            textwrap.wrap(f"{YOUR_PICK} ({pick['option_name']})", width=LEGEND_WRAP, break_long_words=False)
+        ),
         legendrank=0,
         mode="lines+markers",
         line=dict(color=YOUR_COLOUR, width=4, dash="dash"),
@@ -154,6 +171,9 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
     else:
         fig.add_trace(go.Scatter(x=list(range(len(keys))), y=values, text=hover, **style))
 
+    # Right margin follows the longest legend line, counting the pick (added after lokigi sized it)
+    longest = max(len(line) for t in fig.data if t.showlegend is not False for line in t.name.split("<br>"))
+    radar = kind == "radar"
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
@@ -162,10 +182,10 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
         legend=dict(font=dict(size=14)),
         annotations=[],
         title=None,
-        margin=dict(t=20, b=95 if kind == "radar" else 40),  # radar's bottom label has 3 lines
+        # Radar spoke labels are taller and wider, so they need more room all round
+        margin=dict(t=40 if radar else 20, b=125 if radar else 40, l=60, r=int(7.5 * longest) + 50),
+        height=570,
     )
-    if kind == "radar":
-        # Leave room above the chart for the top spoke's label
-        fig.update_layout(polar=dict(bgcolor="rgba(0,0,0,0)", domain=dict(x=[0.12, 0.7], y=[0.0, 0.8])))
-    fig.update_layout(height=570)
+    if radar:
+        fig.update_layout(polar=dict(bgcolor="rgba(0,0,0,0)", domain=dict(x=[0.22, 0.72], y=[0.0, 0.8])))
     return fig
