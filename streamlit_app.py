@@ -533,6 +533,22 @@ with tab_build:
         )
         render_what_if(mode, cutoff, demand, view, len(new_sites))
 
+    st.divider()
+    st.markdown(
+        f"**Is {label(data, new_sites)} the best place?** Let a computer try every option."
+        if has_new
+        else "**Pick a new centre on the map**, then see if a computer can beat it."
+    )
+    # Setting the tabs' key in a callback opens tab 2 on the rerun
+    st.button(
+        "Watch the optimiser",
+        key="go_to_optimiser",
+        icon=":material/arrow_forward:",
+        type="primary",
+        disabled=not has_new,
+        on_click=lambda: st.session_state.update(page=TAB_LABELS[1]),
+    )
+
 # ---------------------------------------------------------------- tab 2
 with tab_opt:
     if not has_new:
