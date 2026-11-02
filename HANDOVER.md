@@ -89,6 +89,31 @@ no tracebacks. Not verified: hover text, touch, cutoff slider away from its defa
 omit the red part and cutoff line by design, untested visually). Known wart: public transport is lumpy because the
 underlying times are, and the pile-up at 180 draws as a thin spike at the right edge.
 
+## Map views and tab 3 questions
+
+Each tab 3 question now has a matching picture on tab 1 (`travel_map` in `figures.py`, `view` argument):
+
+| Tab 3 question | Tab 1 map view |
+|---|---|
+| Shortest average journey | `time`: journey-time gradient |
+| Fewest people over N min away | `cutoff`: blue/red split |
+| Best for the most deprived areas | `deprived`: the same gradient, only IMD deciles 1-3 coloured |
+| Most people helped | `gain`: only areas with a quicker nearest centre, coloured teal by minutes saved |
+| Most even workload | `nearest`: catchments, with each centre's share of patients in the hover and caption (`nearest_shares` in `core.py`) |
+
+`gain` is blank until a centre is added (the caption says so). Its colour scale tops out at `GAIN_MAX` (45 min by
+car, 120 by public transport), set from the biggest single-centre saving (48 and 139). Colour-scale legends come
+from `_colorbar`: kept inside the map's bottom-left corner, in black text. Map captions sit above the map, so
+the map starts slightly lower than the town pills beside it.
+
+Verified in headless Chrome: car `gain`, `deprived` and `nearest` with two centres; public transport `gain`
+with two centres; car journey-time legend placement; no tracebacks. Not verified: public transport `deprived`
+and the empty `gain` screenshots (taken, not looked at), the `gain` legend's new placement, hover text, the 2036
+demand's effect on shares, the what-if sentences for the new views on public transport, cross-checking a share
+against tab 3's `busiest_car`, touch, narrow screens. Known weak spot: `deprived` colours small urban patches, so
+at full-Devon zoom they read as faint specks. Check it on the stand screen; options are outlining those areas
+or zooming in. The sidebar now has ten map options (five per mode), which is the limit for a walk-up audience.
+
 ## Gotchas learned the hard way
 
 1. **Plotly frame animations do not autoplay on map subplots.** Exported HTML only adds frames and starts
@@ -145,8 +170,9 @@ Space Grotesk body at 18px weight 300, teal call-to-action button, muted-red `st
 `style.css` is the DES mini's file with this app's rules at the bottom; keep the two in step where possible.
 
 Travel mode, cutoff and map view moved to the sidebar (as the DES mini keeps its settings there). Mode and view
-are two three-option radios under "By car" and "By public transport" subheaders ("Journey time by car", "Who
-is too far by public transport", "Closest centre by car", ...); choosing in one clears the other. "Closest centre" colours each area by its nearest centre: cool colours for the existing four, warm for new
+are two five-option radios under "By car" and "By public transport" subheaders ("Journey time by car", "Who
+is too far by public transport", "Most deprived areas by car", "Who gets a quicker journey by car", "Closest
+centre by car", ...); choosing in one clears the other. "Closest centre" colours each area by its nearest centre: cool colours for the existing four, warm for new
 ones, in the order they were tapped (the map gets the unsorted `tapped_sites`). The public transport subheader's help hover
 notes that public transport is buses and walking only, no trains. Changing mode resets the cutoff to that mode's
 default; changing only the view keeps it. The cutoff slider shows only in the "too far" views, but its value is
@@ -158,12 +184,13 @@ full playground's 2036 projection (`raw/demand_MF_50_84_projected_2036.csv`, cop
 `data/generate_projected_demand.py` output). That projection is synthetic, made for teaching, with extra growth
 around Kingsbridge; the help hover and footer say so. With the default cutoffs it changes the winners only by car
 with 2-3 new centres (Kingsbridge joins the "shortest average journey" winner, and the 2-centre "fewest far away"
-one); with 1 new centre, or by public transport, the winners don't change. The maps themselves don't depend on demand.
+one); with 1 new centre, or by public transport, the winners don't change. The map colours don't depend on demand; only the closest-centre view's hover and caption (each centre's share of patients) do.
 
 Tab 1 also has a "What if the budget were bigger?" panel, full width below the map and metrics behind a divider (`render_what_if` in `streamlit_app.py`,
 `best_by_count` in `core.py`, `diminishing_returns_chart` in `figures.py`). It shows what the best 1st to 8th extra
 centre adds, on the measure the sidebar map is showing: people within the cutoff ("too far" view), minutes cut from
-the average journey ("journey time"), or people with a closer centre ("closest centre"). Each count uses its own
+the average journey ("journey time"), minutes cut from the average in the most deprived areas ("most deprived";
+`best_by_count` has a `deprived` series for it), or people with a closer centre ("closest centre" and "quicker journey"). Each count uses its own
 best combination for that measure, so the bars always fall. Bars within the 3-centre budget are solid, the rest
 faded, and the bar for the visitor's current number of centres is outlined yellow. Deliberately left out: the
 visitor's own per-centre gains in tap order (they can rise, which muddies the message). Verified in headless
