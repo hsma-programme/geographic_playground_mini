@@ -98,7 +98,7 @@ def questions(cutoffs) -> dict:
     return {q.key: q for q in qs}
 
 
-DEFAULT_QUESTIONS = {"car": ["avg_car", "beyond_car"], "pt": ["avg_pt", "beyond_pt"], "service": []}
+DEFAULT_QUESTIONS = {"car": ["beyond_car", "helped_car"], "pt": ["beyond_pt"], "service": []}
 
 
 def question_scores(data: Data, n_new: int, cutoffs, demand: str) -> pd.DataFrame:

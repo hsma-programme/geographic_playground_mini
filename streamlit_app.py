@@ -99,6 +99,12 @@ def clear_sites():
     st.session_state.optimiser_ran = False
 
 
+def go_to_tab(label):
+    """Switch tab from a button; the new tab would otherwise open at the old scroll position."""
+    st.session_state.page = label
+    st.session_state.scroll_to_top = True
+
+
 def surprise_me():
     n = random.randint(1, MAX_NEW_SITES)
     st.session_state.new_sites = random.sample(list(data.candidates), n)
@@ -221,8 +227,9 @@ new_sites = tuple(sorted(tapped_sites))
 has_new = bool(new_sites)
 
 # on_change="rerun" tracks the open tab, so the sidebar can be tab 1's alone
+TAB_LABELS = ["1 · You choose", "2 · Watch the optimiser", "3 · Weigh it up"]
 tab_build, tab_opt, tab_trade = st.tabs(
-    ["1 · You choose", "2 · Watch the optimiser", "3 · Weigh it up"],
+    TAB_LABELS,
     key="page",
     on_change="rerun",
 )
@@ -530,9 +537,16 @@ with tab_opt:
             )
             st.markdown(f"<div class='result-box'>{boxes}</div>", unsafe_allow_html=True)
             st.caption(
-                "Real location problems are far bigger than this one, and have many "
+                "Real location problems can be far bigger than this one, and can have many "
                 "competing goals. Optimisation software searches them for you and shows "
                 "the trade-offs."
+            )
+            st.button(
+                "Next: weigh up the trade-offs",
+                key="to_trade",
+                on_click=go_to_tab,
+                args=(TAB_LABELS[2],),
+                icon=":material/arrow_forward:",
             )
 
 # ---------------------------------------------------------------- tab 3
@@ -651,3 +665,11 @@ footer_text.caption(
     "Trade-off charts drawn with [lokigi](https://github.com/hsma-tools/lokigi), "
     "HSMA's open-source location package."
 )
+
+if st.session_state.pop("scroll_to_top", False):
+    st.html(
+        "<script>setTimeout(function () {"
+        "var m = document.querySelector('[data-testid=\"stMain\"]'); if (m) m.scrollTo(0, 0);"
+        "window.scrollTo(0, 0);}, 100);</script>",
+        unsafe_allow_javascript=True,
+    )
