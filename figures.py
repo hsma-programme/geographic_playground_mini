@@ -74,14 +74,36 @@ def _site_traces(data: Data, new_sites, selectable=False):
     ]
 
 
+def _add_cutoff_legend(fig: go.Figure, cutoff):
+    """Key for the 'too far' map's two colours, in its bottom-left corner.
+
+    Choropleth fills can't have legend entries, so these are empty marker traces that
+    only appear in the legend. Added last so the trace numbers other code relies on stay the same.
+    """
+    fig.update_traces(showlegend=False)
+    for colour, text in [(NEAR, "Less"), (FAR, "More")]:
+        fig.add_trace(go.Scattermap(
+            lat=[None], lon=[None], mode="markers", marker=dict(size=14, color=colour, opacity=0.75),
+            name=f"{text} than {cutoff} minutes from nearest centre", hoverinfo="skip",
+        ))
+    fig.update_layout(
+        showlegend=True,
+        legend=dict(
+            x=0.02, y=0.02, xanchor="left", yanchor="bottom", bgcolor="rgba(255,255,255,0.85)",
+            font=dict(color="#000", size=13), itemclick=False, itemdoubleclick=False,
+        ),
+    )
+
+
 def travel_map(
-    data: Data, mode, new_sites, cutoff, view, height=640, selectable=False, demand="today"
+    data: Data, mode, new_sites, cutoff, view, height=640, selectable=False, demand="today", legend=False
 ) -> go.Figure:
     """The interactive map: binary 'beyond the cutoff' view, a time gradient, that
     gradient for the most deprived areas only, the minutes saved by new centres, or
     each area coloured by its closest centre (hover shows each centre's share of patients).
 
     selectable=True sizes and labels the candidate sites for tapping.
+    legend=True adds a key to the 'beyond the cutoff' view (the other views have colour bars).
     """
     times = nearest_time(data, mode, new_sites)
     if view == "nearest":
@@ -157,6 +179,8 @@ def travel_map(
         # Only shown where the chart's config turns the mode bar on (MAP_ZOOM_CONFIG)
         modebar=dict(orientation="v", bgcolor="rgba(255,255,255,0.85)", color="#333", activecolor="#000"),
     )
+    if legend and view == "cutoff":
+        _add_cutoff_legend(fig, cutoff)
     return fig
 
 

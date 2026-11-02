@@ -523,7 +523,7 @@ with tab_build:
         map_key = f"main_map_{st.session_state.map_taps}"
         st.plotly_chart(
             travel_map(
-                data, mode, tapped_sites, cutoff, view, selectable=True, demand=demand
+                data, mode, tapped_sites, cutoff, view, selectable=True, demand=demand, legend=True
             ),
             key=map_key,
             width="stretch",
