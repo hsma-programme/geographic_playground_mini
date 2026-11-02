@@ -4,7 +4,7 @@
 
 A stand-friendly variant of the full geographic optimisation playground (`C:\geographic_or_ds_playground`,
 a 45-minute, 20+ page teaching app for NHS decision makers). This one is meant for people walking up to a
-stand who know nothing about the topic: 2-5 minutes, one page, two tabs, modelled on
+stand who know nothing about the topic: 2-5 minutes, one page, three tabs, modelled on
 `C:\Users\Sammi\des_playground_mini` (single page, presets, challenge feel, HSMA footer).
 
 The two "wow" moments are (1) a map where you add centres and watch the red "too far" areas shrink, and
@@ -16,16 +16,16 @@ clinicians second. Plain English, no jargon.
 
 ## Current state (first version, working, committed)
 
-Verified by driving the real page in headless Chrome (see "Testing" below): both tabs, site toggling,
+Verified by driving the real page in headless Chrome (see "Testing" below): all three tabs, site toggling,
 the animation advancing, the results section. Not verified: touch input, offline mode, narrow screens.
 
 | File | Role |
 |---|---|
-| `streamlit_app.py` | The whole UI: tab 1 (build your network) and tab 2 (optimiser + results) |
+| `streamlit_app.py` | The whole UI: tab 1 (build your network), tab 2 (optimiser + results), tab 3 (weigh it up) |
 | `core.py` | Data loading (`load_data`), scoring (`nearest_time`, `summarise`, `score_all_combinations`), objectives, ranking |
 | `figures.py` | Plotly maps: interactive `travel_map`, compact `static_time_map` |
 | `pareto.py` | Tab 3 ("Weigh it up"): builds a lokigi `SiteSolutionSet` from `score_all_combinations`, finds the options no other beats on every chosen question, draws lokigi's interactive radar / parallel-lines chart plus a yellow dashed "Your pick" trace |
-| `animation.py` | The optimiser animation: custom HTML + JS timer inside `components.html` |
+| `animation.py` | The optimiser animation: custom HTML + JS timer, written to `static/` and embedded by URL (see gotcha 7) |
 | `scripts/precompute.py` | `raw/` to `data/` (simplified GeoJSON, npz of matrices/demand/IMD, sites.csv) |
 | `scripts/cdp_drive.py` | Headless-Chrome driver for UI testing (see below) |
 | `raw/` | Inputs copied from the full playground (see its LICENCE) |
@@ -33,8 +33,8 @@ the animation advancing, the results section. Not verified: touch input, offline
 
 Key design decisions:
 - **No optimiser at runtime.** 4 existing + 14 candidate sites means at most 364 combinations (3 new sites);
-  each is a `min()` over matrix columns plus a weighted mean. lokigi is not a dependency. If the story is ever
-  "this is what lokigi does at scale", say so in copy; do not imply the app runs it.
+  each is a `min()` over matrix columns plus a weighted mean. lokigi is a dependency, but only for tab 3's
+  unbeaten-options logic and charts (`pareto.py`); do not imply in copy that it searches or optimises.
 - **Up to 3 new sites** (`MAX_NEW_SITES` in `core.py`); the animation length follows (14 / 91 / 364 frames).
 - **Four objectives**, all lower-is-better, in `OBJECTIVES`: average journey, people beyond the cutoff,
   average for IMD deciles 1-3, longest journey. Winners differ for both car and public transport at 1 and 2
@@ -136,6 +136,15 @@ or zooming in. The sidebar now has ten map options (five per mode), which is the
    traces 2-4 (possible new centres, then the chosen centres' dark outline and yellow dot), so taps on areas
    and existing centres do nothing. Map markers have no outline property, hence the separate outline trace;
    `animation.py` moves traces 3 and 4 together.
+7. **The animation must be loaded by URL, not inline.** In an iframe `srcdoc` (what `components.html` and
+   `st.iframe("<html>")` produce) the map's tiles and areas never finish loading: hover works, but the map is
+   blank. A URL-loaded iframe draws fine. The root cause in maplibre is unknown. So `animation.py` writes the
+   page to `static/optimiser_<hash>.html` (served via `enableStaticServing` in `.streamlit/config.toml`) and
+   embeds a one-line `srcdoc` stub that does `location.replace("app/static/...")`. The address must stay
+   relative, with no leading slash: Community Cloud serves the app under `/~/+/`, and `/app/static/...` returned
+   Not Found there. To test locally under the same prefix, run with `--server.baseUrlPath=/~/+` (in Git Bash set
+   `MSYS_NO_PATHCONV=1`, or `~` is expanded to the home folder). The app needs write access to `static/`; the
+   generated files are gitignored. Note that a running server does not pick up edits to `animation.py`; restart it.
 
 ## Testing
 

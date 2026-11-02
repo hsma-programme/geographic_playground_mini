@@ -3,6 +3,7 @@
 Tab 1: toggle new centres on a map of Devon and watch travel times change.
 Tab 2: watch a computer try every combination, then see that the "best" answer
 depends on what you ask it to optimise.
+Tab 3: weigh several questions at once and see which options nothing else beats.
 """
 
 import base64
