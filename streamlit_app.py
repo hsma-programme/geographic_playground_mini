@@ -166,9 +166,6 @@ def other_options(n):
     return f"{n} other option{'s' if n > 1 else ''}"
 
 
-ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"]
-
-
 def render_what_if(mode, cutoff, demand, view, n_chosen):
     """Diminishing returns: what each extra centre adds, on the measure the map is showing."""
     best = best_by_count(mode, float(cutoff), demand)
@@ -213,7 +210,9 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
         "gain": "gives",
         "nearest": "gives",
     }[view]
-    first = f"The best 1st new centre {verb} {say(gains[0])}."
+    # Each bar compares the best k sites with the best k + 1, which needn't share any
+    # sites, so the text talks about how many centres rather than which one to open next
+    first = f"Adding one new centre, in the best place, {verb} {say(gains[0])}."
     nonzero = [i for i, g in enumerate(gains) if round(g, -2) > 0 and g >= 50]
     if view == "cutoff" and len(nonzero) < len(gains):
         k = nonzero[-1]
@@ -221,12 +220,13 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
             " After that, there is no benefit on this measure to adding more centres."
         )
         later = (
-            f" The {ORDINALS[k]} {verb} {say_last(gains[k])}.{no_benefit}"
+            f" Going from {k} to {k + 1} new centres {verb} {say_last(gains[k])}.{no_benefit}"
             if k
             else no_benefit
         )
     else:
-        later = f" The {ORDINALS[-1]} {verb} {say_last(gains[-1])}."
+        k = len(gains) - 1
+        later = f" Going from {k} to {k + 1} new centres {verb} {say_last(gains[k])}."
     st.markdown(first + later)
     st.plotly_chart(
         diminishing_returns_chart(gains, n_chosen, MAX_NEW_SITES, y_title, fmt),
