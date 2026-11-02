@@ -162,14 +162,27 @@ img.stLogo {
 	background-color: #1b1a1a;
 	border-bottom: 1px solid #3a3838;
 	gap: 0.75rem;
+	/* On a narrow screen the tabs drop below the title rather than squashing it */
+	flex-wrap: wrap;
+	container-type: inline-size;
 }
 /* The app title, at the left of the bar. */
 [role="tablist"]:not([data-testid="stTabPanel"] *)::before {
 	content: "Geographic Playground";
 	font-family: "HSMA Display", sans-serif;
-	font-size: 2rem;
+	font-size: 1.6rem;
 	letter-spacing: 0.05em;
-	margin-right: 2rem;
+	margin-right: 1.25rem;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+/* Too narrow for title and tabs side by side (e.g. tab 1 with the sidebar open on a
+	laptop): title on its own row, all three tabs together underneath. */
+@container (max-width: 1070px) {
+	[role="tablist"]:not([data-testid="stTabPanel"] *)::before {
+		flex-basis: 100%;
+		margin-right: 0;
+	}
 }
 /* Tabs as pills; the selected one is filled. */
 [data-testid="stTab"]:not([data-testid="stTabPanel"] *) {
