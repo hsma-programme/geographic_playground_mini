@@ -194,14 +194,14 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
             else "the average journey"
         )
         say = lambda g: f"{whose} by {g:.1f} min"
-        say_last = say
+        say_last = lambda g: f"it by a further {g:.1f} min"
     else:
         series = best["helped"]
         gains = [series[i] - series[i - 1] for i in range(1, len(series))]
         y_title = "Extra people helped"
         fmt = lambda g: f"{g / 1000:.0f}k"
         say = lambda g: f"{round(g, -2):,.0f} people a closer centre"
-        say_last = say
+        say_last = lambda g: f"{round(g, -2):,.0f} more people a closer centre"
 
     verb = {
         "cutoff": "brings",
