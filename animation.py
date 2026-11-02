@@ -100,6 +100,7 @@ PAGE_JS = """
 var P = __PAYLOAD__;
 var gd = document.getElementById('map');
 var i = 0, playing = true, looping = false, timer = null, toastTimer = null;
+var t0 = null, shownAt = 0;  // when frame 0 was due (null: from the next frame shown); last map update
 var toggleBtn = document.getElementById('toggle'), loopBtn = document.getElementById('loop');
 var toast = document.getElementById('toast');
 var tag = document.getElementById('tag'), tagTimer = null;
@@ -112,17 +113,30 @@ function setPlaying(on) {
   playing = on;
   toggleBtn.textContent = playing ? 'Pause' : (i === 0 ? 'Play again' : 'Play');
   clearTimeout(timer);
-  if (playing) { toast.classList.remove('show'); tick(); }
+  if (playing) { toast.classList.remove('show'); t0 = null; tick(); }
 }
-function show(k) {
+function mapBusy() {
+  // The map redraws in a background worker; updates sent faster than it can draw
+  // pile up and play out after "Done!", so wait for it (but never more than 1 s)
+  var m = gd._fullLayout.map && gd._fullLayout.map._subplot && gd._fullLayout.map._subplot.map;
+  if (!m || !m.style || performance.now() - shownAt > 1000) return false;
+  return Object.keys(m.style.sourceCaches).some(function (id) {
+    var src = m.getSource(id);
+    return src && !src.loaded();
+  });
+}
+function show(k, from) {
   Plotly.restyle(gd, {z: [P.z[k]]}, [0]);
   Plotly.restyle(gd, {lat: [P.lat[k], P.lat[k]], lon: [P.lon[k], P.lon[k]]}, [3, 4]);  // outline + marker
+  shownAt = performance.now();
   document.getElementById('trying').innerHTML = P.trying[k];
   document.getElementById('best').innerHTML = P.best[k];
   document.getElementById('fill').style.width = (100 * (k + 1) / P.z.length) + '%';
-  if (P.new_best[k]) {
+  var news = null;  // the latest new winner among any frames skipped to get here
+  for (var j = from; j <= k; j++) if (P.new_best[j]) news = P.new_best[j];
+  if (news) {
     // Held long enough to read even when frames fly by; a newer winner replaces it
-    tag.textContent = P.new_best[k];
+    tag.textContent = news;
     tag.classList.add('show');
     clearTimeout(tagTimer);
     tagTimer = setTimeout(function () { tag.classList.remove('show'); }, Math.max(1500, 2 * P.duration));
@@ -132,12 +146,20 @@ function show(k) {
 }
 function tick() {
   if (!gd.data || !gd._fullLayout) { timer = setTimeout(tick, 200); return; }  // not drawn yet
-  show(i);
-  var last = (i === P.z.length - 1);
-  i = last ? 0 : i + 1;
+  if (mapBusy()) { timer = setTimeout(tick, 16); return; }
+  // Show whichever frame is due now, skipping any the map was too slow to draw, so a
+  // run keeps its length and the header never gets ahead of the map
+  var now = performance.now(), end = P.z.length - 1;
+  if (t0 === null) t0 = now - i * P.duration;
+  var k = Math.min(end, Math.max(i, Math.floor((now - t0) / P.duration)));
+  show(k, i);
+  var last = (k === end);
+  i = last ? 0 : k + 1;
   // Stops on the winner unless looping is on (for leaving it running on the stand)
   if (last && !looping) { setPlaying(false); showToast(); return; }
-  if (playing) timer = setTimeout(tick, last ? 3500 : P.duration);
+  if (!playing) return;
+  if (last) { timer = setTimeout(function () { t0 = null; tick(); }, 3500); return; }
+  timer = setTimeout(tick, Math.max(0, t0 + i * P.duration - now));
 }
 toggleBtn.onclick = function () { setPlaying(!playing); };
 loopBtn.onclick = function () {
