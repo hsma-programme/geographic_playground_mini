@@ -138,6 +138,11 @@ def solution_set(data: Data, scores, keys, qs) -> SiteSolutionSet:
     ss.solution_df["option_label"] = [
         _with_wins(name, wins.get(i)) for i, name in zip(ss.solution_df["option_id"], ss.solution_df["option_name"])
     ]
+    # lokigi styles unbeaten options in row order, turning to dashed lines once its ten
+    # colours run out, so the winners (shown at first) go first to keep their lines solid.
+    # Winners keep their own order, so _best_id still picks the same one among ties.
+    is_winner = ss.solution_df["option_id"].isin(wins)
+    ss.solution_df = pd.concat([ss.solution_df[is_winner], ss.solution_df[~is_winner]])
     return ss
 
 
