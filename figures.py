@@ -206,9 +206,10 @@ def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280)
     return fig
 
 
-def static_time_map(data: Data, mode, new_sites, height=440) -> go.Figure:
-    """Compact gradient map used to compare 'your pick' with 'the optimiser's pick'."""
-    fig = travel_map(data, mode, new_sites, cutoff=0, view="time", height=height)
+def compare_map(data: Data, mode, new_sites, view="time", cutoff=0, height=440) -> go.Figure:
+    """Compact map, without a colour bar, used to compare 'your pick' with the optimiser's pick
+    in whichever tab 1 view suits the question being compared."""
+    fig = travel_map(data, mode, new_sites, cutoff=cutoff, view=view, height=height)
     fig.update_traces(showscale=False, selector=dict(type="choroplethmap"))
     return fig
 

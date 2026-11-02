@@ -27,7 +27,7 @@ from core import (
 )
 import pareto
 from animation import render_optimiser_animation
-from figures import MAP_ZOOM_CONFIG, diminishing_returns_chart, journey_chart, static_time_map, travel_map
+from figures import MAP_ZOOM_CONFIG, compare_map, diminishing_returns_chart, journey_chart, travel_map
 
 HSMA_URL = "https://hsma.co.uk"
 FULL_PLAYGROUND_URL = "https://github.com/Bergam0t/geographic_or_ds_playground"
@@ -69,6 +69,14 @@ MAP_VIEWS = {
     "deprived": "Journey time for most deprived areas only",
     "gain": "Who gets a quicker journey",
     "nearest": "Closest centre",
+}
+
+# Tab 2's comparison maps: the tab 1 view that shows each optimiser question best
+OBJECTIVE_VIEW = {"avg": "time", "beyond": "cutoff", "deprived": "deprived", "worst": "time"}
+COMPARE_CAPTIONS = {
+    "time": "Colours show the journey time to the nearest centre, from quick (teal) to slow (red).",
+    "cutoff": "Red areas are more than {cutoff} minutes from the nearest centre.",
+    "deprived": "Only the most deprived third of areas are coloured, from quick (teal) to slow (red).",
 }
 
 st.session_state.setdefault("mode", "car")
@@ -119,6 +127,12 @@ def delta_kwargs(diff, unit, decimals, show, comma=False):
         return {"delta": "no change", "delta_color": "off", "delta_arrow": "off"}
     fmt = f"{{:+{',' if comma else ''}.{decimals}f}}"
     return {"delta": fmt.format(diff) + unit, "delta_color": "inverse"}
+
+
+def rank_colour(rank, total):
+    """Green for the best rank, through amber, to red for the worst."""
+    frac = (rank - 1) / max(total - 1, 1)
+    return f"hsl({120 * (1 - frac):.0f}, 70%, 55%)"
 
 
 ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"]
@@ -467,8 +481,7 @@ with tab_opt:
         )
         st.caption(
             f"Every option is scored on average journey time {pareto.MODE_NAME[opt_mode]} for "
-            f"people aged 50-84, with more than {opt_cutoff} minutes counted as too far. "
-            "Don't think that's the most important thing to score on? "
+            "people aged 50-84. Don't think that's the most important thing to score on? "
             "Don't worry - we'll explore alternatives later."
         )
         if st.button("Run the optimiser", key="run_optimiser", icon=":material/rocket_launch:"):
@@ -483,8 +496,10 @@ with tab_opt:
                 "Ask a different question and a different place can win."
             )
             keys = list(OBJECTIVES)
+            # The cutoff only matters to the 'far away' question, so it is named only there
+            titles = {k: OBJECTIVES[k][0] for k in keys} | {"beyond": f"Fewest people over {opt_cutoff} min away"}
             for col, key in zip(st.columns(len(keys)), keys):
-                title, _unit, blurb = OBJECTIVES[key]
+                title, blurb = titles[key], OBJECTIVES[key][2]
                 winner = scores.loc[scores[key].idxmin()]
                 yours = rank_of(scores, new_sites, key)
                 with col.container(border=True):
@@ -495,7 +510,9 @@ with tab_opt:
                     )
                     st.markdown(blurb)
                     st.markdown(
-                        f"Your pick: **#{yours}** of {n_total:,}" + (" 🏆" if yours == 1 else "")
+                        f"Your pick: <b style='color:{rank_colour(yours, n_total)}'>#{yours}</b> "
+                        f"of {n_total:,}" + (" 🏆" if yours == 1 else ""),
+                        unsafe_allow_html=True,
                     )
 
             pick_key = (
@@ -503,22 +520,27 @@ with tab_opt:
                     "Compare your pick with the winner on...",
                     keys,
                     default="avg",
-                    format_func=lambda k: OBJECTIVES[k][0],
+                    format_func=titles.get,
                 )
                 or "avg"
             )
             winner_sites = scores.loc[scores[pick_key].idxmin(), "sites"]
+            # Both maps use the tab 1 view that shows the chosen question
+            compare_view = OBJECTIVE_VIEW[pick_key]
+            st.caption(COMPARE_CAPTIONS[compare_view].format(cutoff=opt_cutoff))
             left, right = st.columns(2)
             left.subheader("Your pick")
             left.plotly_chart(
-                static_time_map(data, opt_mode, new_sites),
+                compare_map(data, opt_mode, new_sites, compare_view, opt_cutoff),
                 key="map_yours",
                 width="stretch",
                 config={"displayModeBar": False},
             )
-            right.subheader(f"Best for: {OBJECTIVES[pick_key][0].lower()}")
+            title = titles[pick_key]
+            # "Best for the most deprived areas" already starts with "Best for"
+            right.subheader(title if title.startswith("Best for") else f"Best for: {title.lower()}")
             right.plotly_chart(
-                static_time_map(data, opt_mode, winner_sites),
+                compare_map(data, opt_mode, winner_sites, compare_view, opt_cutoff),
                 key="map_winner",
                 width="stretch",
                 config={"displayModeBar": False},
@@ -530,10 +552,10 @@ with tab_opt:
                 f"<div class='result-line'><div class='big-number'>{n:,}</div>"
                 f"<div class='big-number-label'>{text}</div></div>"
                 for n, text in [
-                    (n_combinations(n_cand, 1), "ways to add 1 centre"),
-                    (n_combinations(n_cand, 2), "ways to add 2"),
-                    (n_combinations(n_cand, 3), "ways to add 3"),
-                    (n_combinations(100, 5), "ways to pick 5 from 100 sites"),
+                    (n_combinations(n_cand, 1), f"ways to add 1 centre<br>from {n_cand} site options"),
+                    (n_combinations(n_cand, 2), f"ways to add 2 centres<br>from {n_cand} site options"),
+                    (n_combinations(n_cand, 3), f"ways to add 3 centres<br>from {n_cand} site options"),
+                    (n_combinations(100, 5), "ways to add 5 centres<br>from 100 site options"),
                 ]
             )
             st.markdown(f"<div class='result-box'>{boxes}</div>", unsafe_allow_html=True)

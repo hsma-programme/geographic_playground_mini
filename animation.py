@@ -43,11 +43,16 @@ def build_payload(data: Data, mode, scores, objective, seed=7) -> dict:
     values = scores[objective].to_numpy()[order]
     n = len(combos)
 
-    z, lat, lon, trying, best_text = [], [], [], [], []
+    z, lat, lon, trying, best_text, new_best = [], [], [], [], [], []
     best = 0
     for k, combo in enumerate(combos):
         if values[k] < values[best]:
+            gain = values[best] - values[k]
+            amount = f"{gain:.1f} min" if gain >= 0.05 else "under 0.1 min"
+            new_best.append(f"New winner: {amount} quicker on average")
             best = k
+        else:
+            new_best.append(None)
         site = data.sites.loc[list(combo)]
         z.append(nearest_time(data, mode, combo).round(0).astype(int).tolist())
         lat.append(site["Latitude"].tolist())
@@ -63,8 +68,10 @@ def build_payload(data: Data, mode, scores, objective, seed=7) -> dict:
     lon.append(site["Longitude"].tolist())
     trying.append(f"<b>Done!</b> All {n} options tried")
     best_text.append(f"<b>Winner:</b> {label(data, combos[winner])} <span class='dim'>{values[winner]:.1f} min average journey</span>")
+    new_best.append(None)
 
-    return dict(z=z, lat=lat, lon=lon, trying=trying, best=best_text, duration=_frame_duration_ms(n))
+    return dict(z=z, lat=lat, lon=lon, trying=trying, best=best_text, new_best=new_best,
+                duration=_frame_duration_ms(n))
 
 
 PAGE_CSS = """
@@ -72,6 +79,11 @@ html,body{overflow:hidden;}
 body{margin:0;background:transparent;color:#fff;font-family:'Space Grotesk',sans-serif;}
 #hdr{height:%dpx;box-sizing:border-box;padding:6px 4px;font-size:21px;line-height:1.5;}
 #hdr .dim{opacity:.65;font-size:16px;margin-left:8px;}
+#bestrow{display:flex;align-items:center;gap:12px;white-space:nowrap;}
+#best{overflow:hidden;text-overflow:ellipsis;}
+#tag{flex-shrink:0;background:#2e9e4f;color:#fff;font-size:15px;font-weight:600;padding:2px 10px;border-radius:999px;
+  opacity:0;transition:opacity .3s;}
+#tag.show{opacity:1;}
 #bar{height:6px;background:#333;border-radius:3px;margin:0 0 8px;}
 #fill{height:100%%;width:0;background:#1fb1b9;border-radius:3px;}
 #ctl{height:%dpx;}
@@ -90,6 +102,7 @@ var gd = document.getElementById('map');
 var i = 0, playing = true, looping = false, timer = null, toastTimer = null;
 var toggleBtn = document.getElementById('toggle'), loopBtn = document.getElementById('loop');
 var toast = document.getElementById('toast');
+var tag = document.getElementById('tag'), tagTimer = null;
 function showToast() {
   toast.classList.add('show');
   clearTimeout(toastTimer);
@@ -107,6 +120,15 @@ function show(k) {
   document.getElementById('trying').innerHTML = P.trying[k];
   document.getElementById('best').innerHTML = P.best[k];
   document.getElementById('fill').style.width = (100 * (k + 1) / P.z.length) + '%';
+  if (P.new_best[k]) {
+    // Held long enough to read even when frames fly by; a newer winner replaces it
+    tag.textContent = P.new_best[k];
+    tag.classList.add('show');
+    clearTimeout(tagTimer);
+    tagTimer = setTimeout(function () { tag.classList.remove('show'); }, Math.max(1500, 2 * P.duration));
+  } else if (k === 0 || k === P.z.length - 1) {
+    tag.classList.remove('show');
+  }
 }
 function tick() {
   if (!gd.data || !gd._fullLayout) { timer = setTimeout(tick, 200); return; }  // not drawn yet
@@ -146,7 +168,8 @@ def render_optimiser_animation(data: Data, mode, scores, objective="avg"):
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap'>"
         f"<style>{PAGE_CSS % (HEADER_HEIGHT, FOOTER_HEIGHT, FOOTER_HEIGHT + 80)}</style></head><body>"
-        "<div id='hdr'><div id='trying'></div><div id='best'></div></div>"
+        "<div id='hdr'><div id='trying'></div>"
+        "<div id='bestrow'><span id='best'></span><span id='tag'></span></div></div>"
         "<div id='bar'><div id='fill'></div></div>"
         f"{map_html}"
         "<div id='ctl'><button id='toggle'>Pause</button><button id='loop'>Loop: off</button></div>"
