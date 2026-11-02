@@ -26,7 +26,7 @@ from core import (
 )
 import pareto
 from animation import render_optimiser_animation
-from figures import diminishing_returns_chart, static_time_map, travel_map
+from figures import diminishing_returns_chart, journey_chart, static_time_map, travel_map
 
 HSMA_URL = "https://hsma.co.uk"
 FULL_PLAYGROUND_URL = "https://github.com/Bergam0t/geographic_or_ds_playground"
@@ -378,6 +378,19 @@ with tab_build:
             )
         else:
             st.caption("Showing today's network. Tap a grey dot or a town to add a centre.")
+
+        st.markdown("**How long people travel**")
+        st.plotly_chart(
+            journey_chart(mode, today_times, now_times, people, cutoff, has_new),
+            key="journey_chart",
+            width="stretch",
+            config={"displayModeBar": False},
+        )
+        st.caption(
+            "Each point is people grouped by journey time, so the higher the line, the more people. "
+            f"The red part is over {cutoff} minutes."
+            + (" The grey line is today's centres." if has_new else "")
+        )
 
     with map_col:
         st.plotly_chart(

@@ -75,6 +75,20 @@ default (only the default cutoffs were exercised), the 2036 demand, "Most even w
 questions on the final layout, hover and legend taps (static screenshots only), touch, narrow screens, and load
 time on a stand laptop.
 
+## Journey-time chart (tab 1)
+
+Under the metrics on tab 1, `journey_chart` in `figures.py` draws how many people (aged 50-84, for the chosen
+demand) live at each journey time, in 5-minute groups that line up with the cutoff slider's steps. The filled
+area is the current network: blue up to the cutoff, red beyond it, with a dashed line at the cutoff. Once a
+centre is added, today's network shows behind it as a grey line, so the red tail and the hump visibly shrink and
+move. The top is a rounded line through the groups, not a density estimate (which would smear the public transport
+pile-up at the 180-minute cap). Fixed x-axis per mode (car 0-65, public transport 0-180); no legend, zoom disabled.
+
+Verified in headless Chrome: car with no centres and with two, public transport and 2036 demand with two centres,
+no tracebacks. Not verified: hover text, touch, cutoff slider away from its default (car cutoffs above 65 minutes
+omit the red part and cutoff line by design, untested visually). Known wart: public transport is lumpy because the
+underlying times are, and the pile-up at 180 draws as a thin spike at the right edge.
+
 ## Gotchas learned the hard way
 
 1. **Plotly frame animations do not autoplay on map subplots.** Exported HTML only adds frames and starts

@@ -160,3 +160,75 @@ def static_time_map(data: Data, mode, new_sites, height=440) -> go.Figure:
     fig = travel_map(data, mode, new_sites, cutoff=0, view="time", height=height)
     fig.update_traces(showscale=False, selector=dict(type="choroplethmap"))
     return fig
+
+
+# Journey-time chart: 5-minute groups line up with the cutoff slider's 5-minute steps
+HIST_BIN = 5
+HIST_MAX = {"car": 65, "pt": 180}  # public transport is capped at 180 (unreachable areas)
+GREY = "#b8b8b8"
+
+
+def _people_by_time(times, weights, mode):
+    """(group mid-points, people in each 5-minute group); anything at or over the top lands in the last."""
+    top = HIST_MAX[mode]
+    edges = np.arange(0, top + HIST_BIN, HIST_BIN)
+    counts, _ = np.histogram(np.minimum(times, top - 1e-6), bins=edges, weights=weights)
+    return (edges[:-1] + edges[1:]) / 2, counts
+
+
+def journey_chart(mode, today_times, now_times, weights, cutoff, show_today, height=260) -> go.Figure:
+    """People at each journey time as a filled area: blue up to the cutoff, red beyond it.
+
+    With new centres chosen, today's network is drawn behind as a grey line. The top is
+    a rounded line through the 5-minute groups (not a density estimate, which would smear
+    the public transport pile-up at the 180-minute cap).
+    """
+    top = HIST_MAX[mode]
+    mids, now = _people_by_time(now_times, weights, mode)
+    _, today = _people_by_time(today_times, weights, mode)
+    lo = mids - HIST_BIN / 2
+    hover = [f"{a:.0f}-{a + HIST_BIN:.0f} minutes: {n:,.0f} people" for a, n in zip(lo, now)]
+    if mode == "pt":
+        hover[-1] = f"About {top / 60:.0f} hours or more, or no bus route: {now[-1]:,.0f} people"
+
+    def area(mask, colour, extra_x, extra_y, extra_at_start):
+        xs, ys, text = list(mids[mask]), list(now[mask]), [h for h, m in zip(hover, mask) if m]
+        if extra_at_start:
+            xs, ys, text = [extra_x, *xs], [extra_y, *ys], ["", *text]
+        else:
+            xs, ys, text = [*xs, extra_x], [*ys, extra_y], [*text, ""]
+        return go.Scatter(
+            x=xs, y=ys, text=text, mode="lines", fill="tozeroy",
+            line=dict(color=colour, width=3, shape="spline", smoothing=0.6),
+            fillcolor=f"rgba({int(colour[1:3], 16)},{int(colour[3:5], 16)},{int(colour[5:7], 16)},0.5)",
+            hovertemplate="%{text}<extra></extra>",
+        )
+
+    fig = go.Figure()
+    if show_today:
+        fig.add_trace(go.Scatter(
+            x=mids, y=today, mode="lines", hoverinfo="skip",
+            line=dict(color=GREY, width=2.5, shape="spline", smoothing=0.6),
+        ))
+    # Height at the cutoff, so the blue and red fills meet without a gap
+    at_cut = float(np.interp(cutoff, mids, now))
+    fig.add_trace(area(mids < cutoff, NEAR, min(cutoff, top), at_cut, extra_at_start=False))
+    if cutoff < top:
+        fig.add_trace(area(mids > cutoff, FAR, cutoff, at_cut, extra_at_start=True))
+        fig.add_vline(
+            x=cutoff, line=dict(color="#ffffff", width=1.5, dash="dash"),
+            annotation_text=f"{cutoff:g} min", annotation_position="top right",
+            annotation_font=dict(size=14),
+        )
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Space Grotesk, sans-serif", size=14),
+        showlegend=False, dragmode=False, hovermode="closest",
+        margin=dict(l=10, r=10, t=10, b=40), height=height,
+    )
+    fig.update_xaxes(
+        range=[0, top], title_text="Journey time to the nearest centre (minutes)", fixedrange=True,
+    )
+    fig.update_yaxes(rangemode="tozero", showticklabels=False, showgrid=False, fixedrange=True)
+    return fig
