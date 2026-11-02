@@ -187,5 +187,9 @@ def render_optimiser_animation(data: Data, mode, scores, objective="avg"):
     path = STATIC_DIR / name
     if not path.exists():
         path.write_text(html, encoding="utf8")
-    st.iframe(f"/app/static/{name}", height=HEADER_HEIGHT + MAP_HEIGHT + FOOTER_HEIGHT + 40)
+    # A tiny srcdoc page that loads the real one by a relative URL, so it resolves
+    # against the app's own address. "/app/static/..." would miss the "/~/+/" prefix
+    # the app is served under on Community Cloud.
+    redirect = f"<script>location.replace({json.dumps('app/static/' + name)})</script>"
+    st.iframe(redirect, height=HEADER_HEIGHT + MAP_HEIGHT + FOOTER_HEIGHT + 40)
     return html
