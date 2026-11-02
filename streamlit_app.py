@@ -92,7 +92,6 @@ def on_map_choice_change(mode):
     if mode != st.session_state.mode:
         st.session_state.mode = mode
         st.session_state.cutoff = DEFAULT_CUTOFF[mode]
-        st.session_state.optimiser_ran = False
 
 
 def clear_sites():
@@ -230,7 +229,8 @@ tab_build, tab_opt, tab_trade = st.tabs(
 
 # Controls are drawn first (they write session state), then the maps read it
 with st.sidebar:
-    # Mode, cutoff and demand only mean something on tab 1; tabs 2 and 3 follow them.
+    # Mode, cutoff and demand only mean something on tab 1. Tab 3 follows them;
+    # tab 2 ignores them (it is always car, a 45-minute cutoff and today's population).
     # persist_state keeps their values while they aren't drawn
     if tab_build.open:
         st.caption(
@@ -279,13 +279,12 @@ with st.sidebar:
             list(DEMANDS),
             format_func=DEMANDS.get,
             key="demand",
-            on_change=on_sites_change,
             label_visibility="collapsed",
             persist_state="page",
         )
         st.caption(
             "This doesn't change the map colours. Use it together with the options above: "
-            "it changes the numbers, the chart and the optimiser."
+            "it changes the numbers and the charts."
         )
 
 # ---------------------------------------------------------------- tab 1
@@ -403,6 +402,7 @@ with tab_build:
         )
         st.caption(
             "Each point is people grouped by journey time, so the higher the line, the more people. "
+            "The further to the left the area under the line sits, the better: it means shorter journeys. "
             f"The red part is over {cutoff} minutes."
             + (" The grey line is today's centres." if has_new else "")
         )
@@ -436,17 +436,17 @@ with tab_build:
             on_select=lambda key=map_key: on_map_click(key),
             selection_mode="points",
         )
-
-    st.divider()
-    render_what_if(mode, cutoff, demand, view, len(new_sites))
+        render_what_if(mode, cutoff, demand, view, len(new_sites))
 
 # ---------------------------------------------------------------- tab 2
 with tab_opt:
     if not has_new:
         st.info("Choose at least one new centre on the first tab, then come back here.")
     else:
+        # Fixed, so the optimiser always asks the same simple question; tab 3 explores others
+        opt_mode, opt_cutoff, opt_demand = "car", DEFAULT_CUTOFF["car"], "today"
         n_new = len(new_sites)
-        scores = score_all_combinations(mode, n_new, float(cutoff), demand)
+        scores = score_all_combinations(opt_mode, n_new, float(opt_cutoff), opt_demand)
         n_total = len(scores)
         st.markdown(
             f"You chose **{label(data, new_sites)}**. Is that the best place? "
@@ -458,14 +458,16 @@ with tab_opt:
             unsafe_allow_html=True,
         )
         st.caption(
-            f"Scored on journeys {pareto.MODE_NAME[mode]} for {who.lower()}, with more than "
-            f"{cutoff} minutes counted as too far. You can change these on the first tab."
+            f"Every option is scored on average journey time {pareto.MODE_NAME[opt_mode]} for "
+            f"people aged 50-84, with more than {opt_cutoff} minutes counted as too far. "
+            "Don't think that's the most important thing to score on? "
+            "Don't worry - we'll explore alternatives later."
         )
         if st.button("Run the optimiser", key="run_optimiser", icon=":material/rocket_launch:"):
             st.session_state.optimiser_ran = True
 
         if st.session_state.get("optimiser_ran"):
-            render_optimiser_animation(data, mode, scores, "avg")
+            render_optimiser_animation(data, opt_mode, scores, "avg")
 
             st.subheader("But 'best' depends on what you ask")
             st.markdown(
@@ -501,14 +503,14 @@ with tab_opt:
             left, right = st.columns(2)
             left.subheader("Your pick")
             left.plotly_chart(
-                static_time_map(data, mode, new_sites),
+                static_time_map(data, opt_mode, new_sites),
                 key="map_yours",
                 width="stretch",
                 config={"displayModeBar": False},
             )
             right.subheader(f"Best for: {OBJECTIVES[pick_key][0].lower()}")
             right.plotly_chart(
-                static_time_map(data, mode, winner_sites),
+                static_time_map(data, opt_mode, winner_sites),
                 key="map_winner",
                 width="stretch",
                 config={"displayModeBar": False},
