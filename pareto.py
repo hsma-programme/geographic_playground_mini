@@ -7,6 +7,7 @@ options that no other option beats on every chosen question, and to draw them.
 import textwrap
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from lokigi.multiobjective import Metric
@@ -232,6 +233,123 @@ def _axis_label(ss, q, kind="lines") -> str:
     )
 
 
+# The made-up example in the "How to read this chart" box: 0 is worst, 1 is best.
+# Your pick is below option B on every question, so B rules it out.
+GUIDE_OPTIONS = {
+    "Option A": ([0.95, 0.55, 0.15], "#1f77b4"),  # lokigi's first two colours (tab10)
+    "Option B": ([0.3, 0.7, 0.9], "#ff7f0e"),
+}
+GUIDE_PICK = [0.2, 0.5, 0.7]
+GUIDE_RULED_OUT = [[0.1, 0.25, 0.3], [0.45, 0.15, 0.05], [0.05, 0.1, 0.35]]
+GUIDE_GREY = "#8a8a8a"
+
+
+def _faint(colour):
+    """A hex colour as a see-through fill, so shapes stay visible underneath each other."""
+    r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+    return f"rgba({r},{g},{b},0.12)"
+
+
+def guide_chart(kind="radar"):
+    """Small annotated example of the radar ('radar') or lines ('lines') chart.
+
+    Drawn on plain x/y axes, radar included, so the numbered badges can sit exactly
+    where they point. The numbers match the steps written beside it.
+    """
+    radar = kind == "radar"
+    angles = np.radians([90, 210, 330])  # question 1 at the top, like lokigi's radar
+
+    def xy(values):
+        if radar:
+            v = np.append(values, values[0])
+            a = np.append(angles, angles[0])
+            return list(v * np.cos(a)), list(v * np.sin(a))
+        return [0, 1, 2], list(values)
+
+    fig = go.Figure()
+    grid = dict(mode="lines", line=dict(color="rgba(255,255,255,0.25)", width=1), hoverinfo="skip")
+    if radar:
+        t = np.linspace(0, 2 * np.pi, 100)
+        for r in (0.5, 1):
+            fig.add_trace(go.Scatter(x=r * np.cos(t), y=r * np.sin(t), **grid))
+        for a, i in zip(angles, range(3)):
+            fig.add_trace(go.Scatter(x=[0, np.cos(a)], y=[0, np.sin(a)], **grid))
+            fig.add_annotation(x=1.22 * np.cos(a), y=1.16 * np.sin(a), text=f"Question {i + 1}", showarrow=False)
+    else:
+        for i in range(3):
+            fig.add_trace(go.Scatter(x=[i, i], y=[0, 1], **grid))
+            fig.add_annotation(x=i, y=-0.13, text=f"Question {i + 1}", showarrow=False)
+        for values in GUIDE_RULED_OUT:
+            fig.add_trace(go.Scatter(x=[0, 1, 2], y=values, mode="lines",
+                                     line=dict(color=GUIDE_GREY, width=1), opacity=0.6))
+
+    # Which way is better: centre to edge on the radar, bottom to top on the lines
+    tail, head, words = (
+        ((0, -0.08), (0, -0.98), [((0, -1.12), "best"), ((0.2, -0.05), "worst")])
+        if radar
+        else ((-0.38, 0.02), (-0.38, 0.98), [((-0.38, 1.1), "best"), ((-0.38, -0.1), "worst")])
+    )
+    fig.add_annotation(x=head[0], y=head[1], ax=tail[0], ay=tail[1], xref="x", yref="y", axref="x", ayref="y",
+                       text="", arrowhead=2, arrowsize=1.2, arrowwidth=2, arrowcolor="#cccccc")
+    for (x, y), word in words:
+        fig.add_annotation(x=x, y=y, text=word, showarrow=False, font=dict(color="#cccccc", size=14),
+                           bgcolor="rgba(27,26,26,0.7)")
+
+    for name, (values, colour) in GUIDE_OPTIONS.items():
+        xs, ys = xy(values)
+        fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines+markers", line=dict(color=colour, width=3),
+                                 marker=dict(size=7), fill="toself" if radar else None,
+                                 fillcolor=_faint(colour)))
+    xs, ys = xy(GUIDE_PICK)
+    fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines+markers", line=dict(color=YOUR_COLOUR, width=4, dash="dash"),
+                             marker=dict(color=YOUR_COLOUR, size=8)))
+
+    # Names beside each line, so the example needs no legend
+    labels = (
+        [((0.4, 0.6), "Option A", GUIDE_OPTIONS["Option A"][1]),
+         ((0.36, -0.62), "Option B", GUIDE_OPTIONS["Option B"][1]),
+         ((-0.62, 0.12), "Your pick", YOUR_COLOUR)]
+        if radar
+        else [((2.1, v[2]), name, c) for name, (v, c) in GUIDE_OPTIONS.items()]
+        + [((2.1, GUIDE_PICK[2]), "Your pick", YOUR_COLOUR)]
+    )
+    for (x, y), text, colour in labels:
+        fig.add_annotation(x=x, y=y, text=f"<b>{text}</b>", showarrow=False, xanchor="left" if not radar else "center",
+                           font=dict(color=colour, size=14))
+
+    # Numbered badges: (where the badge sits, what its arrow points at, or None)
+    badges = (
+        [((-0.32, -0.85), None), ((-0.28, 0.95), (-0.04, 0.95)), ((1.05, 0.05), (0.62, -0.33))]
+        if radar
+        else [((-0.62, 0.5), None), ((0.32, 1.08), (0.05, 0.97)), ((1.7, 0.45), (1.7, 0.61))]
+    )
+    for n, ((x, y), target) in enumerate(badges, start=1):
+        if target:
+            fig.add_annotation(x=target[0], y=target[1], ax=x, ay=y, xref="x", yref="y", axref="x", ayref="y",
+                               text="", arrowhead=2, arrowwidth=1.5, arrowcolor="#ffffff", standoff=4, startstandoff=13)
+        fig.add_trace(go.Scatter(x=[x], y=[y], mode="markers+text", text=[f"<b>{n}</b>"],
+                                 marker=dict(size=26, color="#ffffff"), textfont=dict(color="#1b1a1a", size=15)))
+
+    axis = dict(visible=False, fixedrange=True)
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Space Grotesk, sans-serif", size=14),
+        showlegend=False,
+        margin=dict(t=10, b=10, l=10, r=10),
+        # A fixed size: the radar keeps its circle round by shrinking to fit, which could
+        # leave the labels overlapping if the column was still narrow when it first drew
+        width=580,
+        height=420 if radar else 400,
+        xaxis=axis | dict(range=[-1.35, 1.35] if radar else [-0.8, 2.7]),
+        yaxis=axis | dict(range=[-1.2, 1.25] if radar else [-0.25, 1.2]),
+    )
+    if radar:
+        fig.update_yaxes(scaleanchor="x")
+    return fig
+
+
 def trade_off_chart(ss, keys, your_sites, kind="radar"):
     """Interactive radar ('radar') or parallel-lines ('lines') chart, with your pick on top."""
     qs = [ss.questions[k] for k in keys]
@@ -260,6 +378,9 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
     else:
         # tickangle=0: plotly tilts crowded labels, which makes the multi-line ones unreadable
         fig.update_xaxes(ticktext=labels, tickangle=0)
+        # lokigi's title says "Better ↑", but plotly turns y-axis titles to read upwards,
+        # which leaves that arrow pointing left; → points up once turned
+        fig.update_yaxes(title_text="Better → (rescaled per metric)")
         for trace in fig.data:
             if trace.showlegend is False:  # the one trace of ruled-out options
                 trace.opacity = 0.3

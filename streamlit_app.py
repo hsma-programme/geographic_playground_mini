@@ -106,6 +106,42 @@ COMPARE_SCORES = {
     "worst": ("{:.1f} min longest journey", "{:.1f} min shorter", 1),
 }
 
+# Tab 3's "How to read this chart" box: one step per numbered badge on the example chart
+GUIDE_STEPS = {
+    "radar": [
+        (
+            "<b>Each shape is one option.</b> Further from the centre is always better, "
+            "even for questions where less is better, like fewer people far away."
+        ),
+        (
+            "<b>A point shows what an option is best at.</b> Option A reaches furthest on "
+            "question 1 but is close to the centre on question 3. Option B is the opposite. "
+            "Neither wins on everything: that's the trade-off."
+        ),
+        (
+            "<b>Your pick is the yellow dashed shape.</b> Here it sits inside Option B's shape, "
+            "so B is better on every question and your pick can be ruled out. A bigger shape "
+            "isn't automatically better: only one that sits inside another is beaten."
+        ),
+    ],
+    "lines": [
+        (
+            "<b>Each line is one option.</b> Higher up is always better, "
+            "even for questions where less is better, like fewer people far away."
+        ),
+        (
+            "<b>A peak shows what an option is best at.</b> Option A is top on question 1 "
+            "but bottom on question 3. Option B is the opposite. "
+            "Neither wins on everything: that's the trade-off."
+        ),
+        (
+            "<b>Your pick is the yellow dashed line.</b> Here it is below Option B on every "
+            "question, so your pick can be ruled out. The faint grey lines are the other "
+            "options that can be ruled out."
+        ),
+    ],
+}
+
 st.session_state.setdefault("mode", "car")
 st.session_state.setdefault("cutoff", DEFAULT_CUTOFF["car"])
 st.session_state.setdefault("view", "cutoff")
@@ -805,6 +841,14 @@ with tab_trade:
                 f"<div class='big-number-label'>of {n_total:,} options can't be ruled out "
                 f"on the questions you picked</div>"
                 + (
+                    "<div class='front-meaning'>It's at least as good as every other option on "
+                    "every question you picked, so it's the clear choice.</div>"
+                    if n_front == 1
+                    else "<div class='front-meaning'>None of them is beaten: no other option is at "
+                    "least as good on every question and better on at least one. So any one of "
+                    "them is a defensible choice, depending on which question matters most to you.</div>"
+                )
+                + (
                     ""
                     if beater is None
                     else f"<div class='pick-missed'>...but your pick, {label(data, new_sites)}, "
@@ -840,28 +884,37 @@ with tab_trade:
                     "Shapes need at least three questions, so this is shown as lines."
                 )
             kind = "radar" if view == "Shapes" else "lines"
-            st.caption(
-                ("Further from the centre" if kind == "radar" else "Higher up")
-                + " is always better. Each colour is an option that can't be ruled out; "
-                "the yellow dashed line is your pick. "
-                + (
-                    "A bigger shape is not automatically better, so compare question by question."
-                    if kind == "radar"
-                    else "The faint grey lines are every other option - the ones that can be "
-                    "ruled out - so you can see how much each question varies."
+            # Starts open; a presenter can close it once a visitor has the idea
+            with st.expander(
+                "How to read this chart", expanded=True, key="chart_guide", icon=":material/help:"
+            ):
+                example_col, steps_col = st.columns([4, 5], vertical_alignment="center")
+                example_col.plotly_chart(
+                    pareto.guide_chart(kind),
+                    key=f"guide_{kind}",
+                    width="content",
+                    config={"staticPlot": True},
                 )
-            )
-            st.caption(
-                "**Using the key:** it lists every option that can't be ruled out. To start with, only "
-                "the ones that win on at least one of your questions are switched on (their names say "
-                '"wins on ..."), plus your pick if it is one of them. Tap a name in the key to show or '
-                "hide it, or double-tap one to see it on its own."
-            )
+                example_col.caption("A made-up example with three questions.")
+                steps_col.markdown(
+                    "\n".join(
+                        f"<div class='guide-step'><span class='guide-num'>{n}</span><div>{text}</div></div>"
+                        for n, text in enumerate(GUIDE_STEPS[kind], start=1)
+                    ),
+                    unsafe_allow_html=True,
+                )
             st.plotly_chart(
                 pareto.trade_off_chart(ss, keys, new_sites, kind),
                 key=f"pareto_{kind}",
                 width="stretch",
                 config={"displayModeBar": False},
+            )
+            # Under the key, which sits on the right of the chart
+            st.columns([2, 1])[1].caption(
+                "**Using the key:** it lists every option that can't be ruled out. To start with, only "
+                "the ones that win on at least one of your questions are switched on (their names say "
+                '"wins on ..."), plus your pick if it is one of them. Tap a name in the key to show or '
+                "hide it, or double-tap one to see it on its own."
             )
 # ---------------------------------------------------------------- footer
 st.divider()
