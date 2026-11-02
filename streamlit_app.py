@@ -547,14 +547,14 @@ with tab_build:
         if has_new
         else "**Pick a new centre on the map**, then see if a computer can beat it."
     )
-    # Setting the tabs' key in a callback opens tab 2 on the rerun
     st.button(
         "Watch the optimiser",
         key="go_to_optimiser",
         icon=":material/arrow_forward:",
         type="primary",
         disabled=not has_new,
-        on_click=lambda: st.session_state.update(page=TAB_LABELS[1]),
+        on_click=go_to_tab,
+        args=(TAB_LABELS[1],),
     )
 
 # ---------------------------------------------------------------- tab 2
@@ -710,12 +710,18 @@ with tab_opt:
                 "competing goals. Optimisation software searches them for you and shows "
                 "the trade-offs."
             )
+            st.divider()
+            st.markdown(
+                "**Real decisions weigh several questions at once.** "
+                "See which options come out on top when you do."
+            )
             st.button(
-                "Next: weigh up the trade-offs",
+                "Weigh up the trade-offs",
                 key="to_trade",
                 on_click=go_to_tab,
                 args=(TAB_LABELS[2],),
                 icon=":material/arrow_forward:",
+                type="primary",
             )
 
 # ---------------------------------------------------------------- tab 3
@@ -746,8 +752,12 @@ with tab_trade:
             unsafe_allow_html=True,
         )
         qs = pareto.questions(cutoffs)
-        st.markdown(
-            f"**Which questions matter to you?** Pick up to {pareto.MAX_QUESTIONS}."
+        n_default = sum(len(v) for v in pareto.DEFAULT_QUESTIONS.values())
+        st.info(
+            f"**Which questions matter to you?** Tap to pick up to {pareto.MAX_QUESTIONS}. "
+            f"We've picked {n_default} to get you started, so you can look at the "
+            "results below straight away, or swap in your own.",
+            icon=":material/touch_app:",
         )
         for row, row_title in pareto.ROWS.items():
             st.pills(
@@ -773,7 +783,14 @@ with tab_trade:
                 f"<div class='result-box'><div class='result-line'>"
                 f"<div class='big-number'>{n_front:,}</div>"
                 f"<div class='big-number-label'>of {n_total:,} options can't be ruled out "
-                f"on the questions you picked</div></div></div>",
+                f"on the questions you picked</div>"
+                + (
+                    ""
+                    if beater is None
+                    else f"<div class='pick-missed'>...but your pick, {label(data, new_sites)}, "
+                    "isn't one of them</div>"
+                )
+                + "</div></div>",
                 unsafe_allow_html=True,
             )
             if beater is None:

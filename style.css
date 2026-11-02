@@ -120,9 +120,10 @@ img.stLogo {
 	max-width: 100%;
 }
 
-/* ---- Big call-to-action buttons ("Run the optimiser", tab 1's "Watch the optimiser") ---- */
+/* ---- Big call-to-action buttons ("Run the optimiser" and the next-tab buttons) ---- */
 .st-key-run_optimiser button,
-.st-key-go_to_optimiser button:not(:disabled) {
+.st-key-go_to_optimiser button:not(:disabled),
+.st-key-to_trade button {
 	min-height: 3.5rem;
 	padding: 0 2rem;
 	font-weight: 600;
@@ -132,12 +133,14 @@ img.stLogo {
 }
 
 .st-key-run_optimiser,
-.st-key-go_to_optimiser {
+.st-key-go_to_optimiser,
+.st-key-to_trade {
 	margin: 0.75rem 0 1.5rem;
 }
 
 .st-key-run_optimiser button p,
-.st-key-go_to_optimiser button p {
+.st-key-go_to_optimiser button p,
+.st-key-to_trade button p {
 	font-family: "HSMA Display", sans-serif !important;
 	font-size: 1.25rem !important;
 	letter-spacing: 0.05em;
@@ -146,7 +149,9 @@ img.stLogo {
 .st-key-run_optimiser button:hover,
 .st-key-run_optimiser button:focus:not(:active),
 .st-key-go_to_optimiser button:not(:disabled):hover,
-.st-key-go_to_optimiser button:not(:disabled):focus:not(:active) {
+.st-key-go_to_optimiser button:not(:disabled):focus:not(:active),
+.st-key-to_trade button:hover,
+.st-key-to_trade button:focus:not(:active) {
 	background-color: #076b72;
 	border-color: #076b72;
 	color: #ffffff;
@@ -231,6 +236,7 @@ img.stLogo {
 [data-testid="stTab"] p,
 .st-key-run_optimiser button p,
 .st-key-go_to_optimiser button p,
+.st-key-to_trade button p,
 h1,
 [data-testid="stIconMaterial"] {
 	font-size-adjust: none;
@@ -280,6 +286,13 @@ h1,
 	border: 1px solid rgba(255, 255, 255, 0.3);
 	border-radius: 0.5rem;
 	background-color: rgba(255, 255, 255, 0.04);
+}
+/* Tab 3: under the "can't be ruled out" count when the visitor's pick is ruled out */
+.pick-missed {
+	margin-top: 0.5rem;
+	color: #ffe600;
+	font-weight: 700;
+	font-size: 1.15rem;
 }
 
 /* ---- Specific to this app ---- */
