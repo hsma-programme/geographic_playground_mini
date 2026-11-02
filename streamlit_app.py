@@ -62,18 +62,13 @@ st.markdown(
 
 data = load_data()
 DEFAULT_CUTOFF = {"car": 45, "pt": 90}
-# (map view, travel mode) -> sidebar label
-MAP_CHOICES = {
-    ("time", "car"): "Journey time by car",
-    ("cutoff", "car"): "Who is too far by car",
-    ("deprived", "car"): "Most deprived areas by car",
-    ("gain", "car"): "Who gets a quicker journey by car",
-    ("nearest", "car"): "Closest centre by car",
-    ("time", "pt"): "Journey time by public transport",
-    ("cutoff", "pt"): "Who is too far by public transport",
-    ("deprived", "pt"): "Most deprived areas by public transport",
-    ("gain", "pt"): "Who gets a quicker journey by public transport",
-    ("nearest", "pt"): "Closest centre by public transport",
+# map view -> sidebar label (the travel mode is in the heading above each radio)
+MAP_VIEWS = {
+    "time": "Journey time",
+    "cutoff": "Who is too far",
+    "deprived": "Most deprived areas",
+    "gain": "Who gets a quicker journey",
+    "nearest": "Closest centre",
 }
 
 st.session_state.setdefault("mode", "car")
@@ -106,7 +101,8 @@ def clear_sites():
 
 
 def surprise_me():
-    st.session_state.new_sites = [random.choice(data.candidates)]
+    n = random.randint(1, MAX_NEW_SITES)
+    st.session_state.new_sites = random.sample(list(data.candidates), n)
     st.session_state.optimiser_ran = False
 
 
@@ -115,7 +111,7 @@ def delta_kwargs(diff, unit, decimals, show, comma=False):
     if not show:
         return {}
     if round(diff, decimals) == 0:
-        return {"delta": "no change", "delta_color": "off"}
+        return {"delta": "no change", "delta_color": "off", "delta_arrow": "off"}
     fmt = f"{{:+{',' if comma else ''}.{decimals}f}}"
     return {"delta": fmt.format(diff) + unit, "delta_color": "inverse"}
 
@@ -235,6 +231,11 @@ with st.sidebar:
     # Mode, cutoff and demand only mean something on tab 1; tabs 2 and 3 follow them.
     # persist_state keeps their values while they aren't drawn
     if tab_build.open:
+        st.caption(
+            "**Choose what the map shows.** Each option colours the map with a different "
+            "set of information. Changing this will not affect the centres you have chosen."
+        )
+        st.space("xsmall")
         for radio_mode, heading, heading_help in [
             ("car", "By car", None),
             (
@@ -248,8 +249,8 @@ with st.sidebar:
             st.subheader(heading, help=heading_help)
             st.radio(
                 f"Map shows ({heading.lower()})",
-                [c for c in MAP_CHOICES if c[1] == radio_mode],
-                format_func=MAP_CHOICES.get,
+                [(v, radio_mode) for v in MAP_VIEWS],
+                format_func=lambda c: MAP_VIEWS[c[0]],
                 key=f"map_choice_{radio_mode}",
                 on_change=on_map_choice_change,
                 args=(radio_mode,),
@@ -400,16 +401,19 @@ with tab_build:
 
     with map_col:
         if view == "time":
-            st.caption("Hover over an area to see its journey time. Tap a dot to add or remove a centre.")
+            st.caption(
+                "Hover over an area to see its journey time. "
+                "Tap a dot to add or remove a centre, or use the buttons on the right."
+            )
         elif view == "deprived":
             st.caption(
                 "Only the most deprived third of areas are coloured. Hover to see a journey time. "
-                "Tap a dot to add or remove a centre."
+                "Tap a dot to add or remove a centre, or use the buttons on the right."
             )
         elif view == "gain":
             st.caption(
                 "Darker areas gain more minutes from your new centres; uncoloured areas are no quicker. "
-                "Tap a dot to add or remove a centre."
+                "Tap a dot to add or remove a centre, or use the buttons on the right."
                 + ("" if has_new else " Add a centre to see who gains.")
             )
         elif view == "nearest":
@@ -418,12 +422,13 @@ with tab_build:
             st.caption(
                 "Each colour is the area closest to one centre - warm colours are your new ones. "
                 f"The busiest centre is {busiest}, with {shares[busiest]:.0%} of patients. "
-                "Hover over an area to see which. Tap a dot to add or remove a centre."
+                "Hover over an area to see which. "
+                "Tap a dot to add or remove a centre, or use the buttons on the right."
             )
         else:
             st.caption(
                 f"Red areas are more than {cutoff} minutes from the nearest centre. "
-                "Tap a dot to add or remove a centre."
+                "Tap a dot to add or remove a centre, or use the buttons on the right."
             )
         st.plotly_chart(
             travel_map(data, mode, tapped_sites, cutoff, view, selectable=True, demand=demand),
