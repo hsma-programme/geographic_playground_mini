@@ -279,3 +279,11 @@ h1,
 
 /* Let the town pills wrap onto several rows instead of scrolling sideways */
 [data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; }
+
+/* Stand-sized zoom buttons on tab 1's map (Plotly's default icons are about 16px) */
+[class*="st-key-main_map_"] .modebar-btn {
+	width: 40px; height: 40px !important; padding: 0 !important;
+	display: flex !important; align-items: center; justify-content: center;
+}
+[class*="st-key-main_map_"] .modebar-btn svg { width: 24px !important; height: 24px !important; }
+[class*="st-key-main_map_"] .modebar-group { border-radius: 6px; padding: 2px !important; }

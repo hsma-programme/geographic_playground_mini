@@ -150,8 +150,18 @@ def travel_map(
         map=dict(style=MAP_STYLE, center=CENTRE, zoom=ZOOM),
         margin=dict(l=0, r=0, t=0, b=0), height=height, showlegend=False,
         paper_bgcolor="rgba(0,0,0,0)",
+        # Only shown where the chart's config turns the mode bar on (MAP_ZOOM_CONFIG)
+        modebar=dict(orientation="v", bgcolor="rgba(255,255,255,0.85)", color="#333", activecolor="#000"),
     )
     return fig
+
+
+# Plotly config for a map with zoom buttons only, always visible (hover-only fails on touchscreens)
+MAP_ZOOM_CONFIG = {
+    "displayModeBar": True,
+    "modeBarButtons": [["zoomInMap", "zoomOutMap", "resetViewMap"]],
+    "displaylogo": False,
+}
 
 
 def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280) -> go.Figure:

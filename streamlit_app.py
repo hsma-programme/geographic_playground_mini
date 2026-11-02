@@ -27,7 +27,7 @@ from core import (
 )
 import pareto
 from animation import render_optimiser_animation
-from figures import diminishing_returns_chart, journey_chart, static_time_map, travel_map
+from figures import MAP_ZOOM_CONFIG, diminishing_returns_chart, journey_chart, static_time_map, travel_map
 
 HSMA_URL = "https://hsma.co.uk"
 FULL_PLAYGROUND_URL = "https://github.com/Bergam0t/geographic_or_ds_playground"
@@ -66,7 +66,7 @@ DEFAULT_CUTOFF = {"car": 45, "pt": 90}
 MAP_VIEWS = {
     "time": "Journey time",
     "cutoff": "Who is too far",
-    "deprived": "Most deprived areas",
+    "deprived": "Journey time for most deprived areas only",
     "gain": "Who gets a quicker journey",
     "nearest": "Closest centre",
 }
@@ -416,30 +416,31 @@ with tab_build:
 
     with map_col:
         if view == "time":
-            st.caption("Hover over an area to see its journey time.")
+            map_note = "Hover over an area to see its journey time."
         elif view == "deprived":
-            st.caption("Only the most deprived third of areas are coloured. Hover to see a journey time.")
+            map_note = "Only the most deprived third of areas are coloured. Hover to see a journey time."
         elif view == "gain":
-            st.caption(
+            map_note = (
                 "Darker areas gain more minutes from your new centres; uncoloured areas are no quicker."
                 + ("" if has_new else " Add a centre to see who gains.")
             )
         elif view == "nearest":
             shares = nearest_shares(data, mode, new_sites, demand)
             busiest = max(shares, key=shares.get)
-            st.caption(
+            map_note = (
                 "Each colour is the area closest to one centre - warm colours are your new ones. "
                 f"The busiest centre is {busiest}, with {shares[busiest]:.0%} of patients. "
                 "Hover over an area to see which."
             )
         else:
-            st.caption(f"Red areas are more than {cutoff} minutes from the nearest centre.")
+            map_note = f"Red areas are more than {cutoff} minutes from the nearest centre."
+        st.caption(map_note + " Click and drag to move the map.")
         map_key = f"main_map_{st.session_state.map_taps}"
         st.plotly_chart(
             travel_map(data, mode, tapped_sites, cutoff, view, selectable=True, demand=demand),
             key=map_key,
             width="stretch",
-            config={"displayModeBar": False},
+            config=MAP_ZOOM_CONFIG,
             on_select=lambda key=map_key: on_map_click(key),
             selection_mode="points",
         )
