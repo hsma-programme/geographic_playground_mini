@@ -29,6 +29,17 @@ The tab 2 animation is written to `static/` at runtime and served by Streamlit's
 serving (`enableStaticServing` in `.streamlit/config.toml`), so the app needs write access to that
 folder.
 
+## Screen size
+
+The page names in the top bar show as three buttons when there is room. When the bar is narrower
+than about 1070px, they become a dropdown instead. On tab 1 the sidebar takes 24rem (432px), so the
+browser window needs to be about 1500px wide for the buttons.
+
+Windows display scaling reduces the width the browser sees. On a 1920x1080 screen, 100% scaling gives
+1920px, 125% gives 1536px (the buttons should just fit), and 150% gives 1280px (you get the dropdown).
+For the stand, set scaling to 100%, or zoom the browser out (Ctrl and minus; 80% at 150% scaling
+gives 1600px). Everything still works with the dropdown; it just takes one more tap to change page.
+
 ## Regenerate the data
 
 `raw/` holds the inputs copied from the full playground. The app reads the small files in `data/`:
