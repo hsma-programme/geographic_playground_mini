@@ -64,7 +64,7 @@ network, so "smallest gap" rewards helping richer rural areas), and 2036 journey
 lokigi is a runtime dependency (`lokigi>=0.10.0`); see CLAUDE.md for the install-size and import-time cost.
 Visitor copy avoids the words "Pareto" and "dominated".
 
-The sidebar (travel mode, map view, cutoff, demand) is drawn only on tab 1, using `st.tabs(key="page",
+The sidebar (new centres, travel mode, map view, cutoff, demand) is drawn only on tab 1, using `st.tabs(key="page",
 on_change="rerun")` and `tab_build.open`; tab 2 carries a one-line caption of what it is scoring. Every widget
 that can stop being drawn needs `persist_state="page"`, or its value is lost.
 
@@ -185,8 +185,19 @@ centre by car", ...); choosing in one clears the other. "Closest centre" colours
 ones, in the order they were tapped (the map gets the unsorted `tapped_sites`). The public transport subheader's help hover
 notes that public transport is buses and walking only, no trains. Changing mode resets the cutoff to that mode's
 default; changing only the view keeps it. The cutoff slider shows only in the "too far" views, but its value is
-kept while hidden (the headline metric and optimiser still use it). The town pills,
-"Start again" / "Surprise me" and the metrics stay next to the map, because picking towns is the main action.
+kept while hidden (the headline metric and optimiser still use it).
+
+Following review feedback ("put all the inputs in one place"), the town pills and "Start again" / "Surprise me"
+are also in the sidebar, as its first section ("Your new centres", above "What the map shows" and "Demand"),
+so tab 1's right-hand column is only results: metrics and the journey chart. The sidebar is 24rem wide (the
+DES mini's is narrower) and the sidebar pills are slightly compact (`style.css`), so the 14 towns fit 3 to a row
+(5 rows). The cost is height: the "By car" map options start about 830px down (measured in a 1500px-wide
+window), so on a 1080px stand screen they are near the fold and the public transport and demand options need a
+scroll. Metric labels wrap instead of ending in "..." because the results column is narrower; below the
+1070px container query the navbar title takes its own row (seen at 1500px wide, not expected at 1920).
+Note: the sidebar width rule used to target `[aria-expanded="true"]`, which this Streamlit never sets, so the
+sidebar was Streamlit's default 300px until this change; it now targets `[data-collapsed="false"]`. The DES
+mini's `style.css` has the same dead selector.
 
 A "Demand" sidebar section switches every metric and the optimiser between today's 50-84 population and the
 full playground's 2036 projection (`raw/demand_MF_50_84_projected_2036.csv`, copied from its

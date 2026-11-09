@@ -88,10 +88,12 @@ section[data-testid="stSidebar"] hr {
 	margin-bottom: 1.6rem;
 }
 
-/* Narrower sidebar. */
-section[data-testid="stSidebar"][aria-expanded="true"] {
-	width: 16rem !important;
-	min-width: 16rem !important;
+/* Sidebar width. Wider than the DES mini's so the town pills (with the compact
+	sidebar pill style further down) fit three to a row, keeping the map options higher up.
+	This Streamlit marks an open sidebar with data-collapsed, not aria-expanded. */
+section[data-testid="stSidebar"][data-collapsed="false"] {
+	width: 24rem !important;
+	min-width: 24rem !important;
 }
 
 /* ---- Sidebar logo (st.logo) ---- */
@@ -313,9 +315,18 @@ h1,
    the controls column at the 18px body size, or Streamlit truncates them. */
 [data-testid="stMetricValue"] { font-size: 1.8rem; }
 .st-key-headline [data-testid="stMetricValue"] { font-size: 2.6rem; }
+/* Let metric labels wrap rather than end in "..." (the results column is narrower now
+   the sidebar holds the town pills) */
+[data-testid="stMetricLabel"] [data-testid="stMarkdownContainer"],
+[data-testid="stMetricLabel"] p { white-space: normal; overflow: visible; }
 
 /* Bigger tap targets for the town pills and buttons */
 [data-testid="stPills"] button, .stButton button { min-height: 2.6rem; font-size: 1rem; }
+/* Town pills in the sidebar: tighter, so three fit to a row; still a finger-sized height */
+section[data-testid="stSidebar"] [data-testid="stPills"] button {
+	min-height: 2.3rem; padding: 0 0.6rem;
+}
+section[data-testid="stSidebar"] [data-testid="stPills"] button p { font-size: 0.9rem; }
 
 .big-number { font-family: var(--readout-font); font-size: 2rem; line-height: 1.1; }
 .big-number-label { font-size: 0.85rem; opacity: 0.75; }

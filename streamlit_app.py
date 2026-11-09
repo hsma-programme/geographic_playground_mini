@@ -360,9 +360,42 @@ with st.sidebar:
                 width="stretch",
                 link="https://arc-sw.nihr.ac.uk/",
             )
+        # Picking towns is the main action, so it comes first
+        st.subheader("Your new centres")
+        st.pills(
+            f"Add up to {MAX_NEW_SITES} new centres",
+            data.candidates,
+            format_func=lambda i: data.short_names[i],
+            selection_mode="multi",
+            key="new_sites",
+            on_change=on_sites_change,
+            persist_state="page",
+        )
+        if len(st.session_state.new_sites) > MAX_NEW_SITES:
+            st.warning(
+                f"The budget stretches to {MAX_NEW_SITES} new centres - untick one to swap."
+            )
+        b1, b2 = st.columns(2)
+        b1.button(
+            "Start again",
+            key="quick_clear",
+            on_click=clear_sites,
+            width="stretch",
+            icon=":material/restart_alt:",
+        )
+        b2.button(
+            "Surprise me",
+            key="quick_surprise",
+            on_click=surprise_me,
+            width="stretch",
+            icon=":material/casino:",
+        )
+
+        st.divider()
+        st.subheader("What the map shows")
         st.caption(
-            "**Choose what the map shows.** Each option colours the map with a different "
-            "set of information. Changing this will not affect the centres you have chosen."
+            "Each option colours the map with a different set of information. "
+            "It doesn't change your centres."
         )
         st.space("xsmall")
         for radio_mode, heading, heading_help in [
@@ -439,41 +472,13 @@ with tab_build:
         unsafe_allow_html=True,
     )
     st.info(
-        "Tap a grey dot on the map, or a town in the list, to open a centre there, "
+        "Tap a grey dot on the map, or a town in the list on the left, to open a centre there, "
         'and watch the red "too far" areas shrink.',
         icon=":material/touch_app:",
     )
 
-    map_col, ctrl_col = st.columns([3, 2], gap="large")
-
-    with ctrl_col:
-        st.pills(
-            f"Add up to {MAX_NEW_SITES} new centres",
-            data.candidates,
-            format_func=lambda i: data.short_names[i],
-            selection_mode="multi",
-            key="new_sites",
-            on_change=on_sites_change,
-        )
-        if len(st.session_state.new_sites) > MAX_NEW_SITES:
-            st.warning(
-                f"The budget stretches to {MAX_NEW_SITES} new centres - untick one to swap."
-            )
-        b1, b2 = st.columns(2)
-        b1.button(
-            "Start again",
-            key="quick_clear",
-            on_click=clear_sites,
-            width="stretch",
-            icon=":material/restart_alt:",
-        )
-        b2.button(
-            "Surprise me",
-            key="quick_surprise",
-            on_click=surprise_me,
-            width="stretch",
-            icon=":material/casino:",
-        )
+    # The town list is in the sidebar, so this column is just the results
+    map_col, results_col = st.columns([3, 2], gap="large")
 
     today_times = nearest_time(data, mode)
     now_times = nearest_time(data, mode, new_sites)
@@ -486,7 +491,7 @@ with tab_build:
     saved = (today_times - now_times)[quicker]
     avg_saved = float((saved * people[quicker]).sum() / improved) if improved else 0.0
 
-    with ctrl_col:
+    with results_col:
         with st.container(key="headline"):
             st.metric(
                 # Shorter ending in 2036 so the label still fits on one line
@@ -532,7 +537,7 @@ with tab_build:
             )
         else:
             st.caption(
-                "Showing today's network. Tap a grey dot or a town to add a centre."
+                "Showing today's network. Tap a grey dot or a town on the left to add a centre."
             )
 
         st.markdown("**How long people travel**")
