@@ -395,6 +395,14 @@ section[data-testid="stSidebar"] [data-testid="stPills"] button p { font-size: 0
 
 /* No hover "fullscreen" button on the NIHR logo (it is a link, not a picture to inspect) */
 .st-key-nihr_logo [data-testid="stElementToolbar"] { display: none; }
+/* NIHR logo smaller, centred, and pulled up towards the HSMA logo, leaving more room for
+	the controls. A third of the image's height is clear space above the mark, and a third
+	below, so the negative margins only trim that. */
+.st-key-nihr_logo {
+	width: 15rem !important;
+	align-self: center;
+	margin: -1.9rem auto 0.4rem;
+}
 
 /* Stand-sized zoom buttons on tab 1's map (Plotly's default icons are about 16px) */
 [class*="st-key-main_map_"] .modebar-btn {
