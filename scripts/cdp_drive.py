@@ -1,5 +1,5 @@
 """Tiny CDP driver: python cdp.py out_prefix step1 step2 ...
-Steps: wait:SECONDS | click:TEXT (click element whose text matches) | tapsite:TEXT (mouse tap on a map marker) | tapxy:X,Y | shot:NAME | js:EXPR
+Steps: size:W,H (window size; first steps apply before load) | wait:SECONDS | click:TEXT (click element whose text matches) | tapsite:TEXT (mouse tap on a map marker) | tapxy:X,Y | shot:NAME (full page) | shotv:NAME (visible window) | js:EXPR
 """
 import asyncio, json, subprocess, sys, urllib.request, time, os
 import websockets
@@ -30,13 +30,27 @@ async def main():
                     if msg.get("id") == mid:
                         return msg.get("result", msg)
             await call("Page.enable")
+            async def set_size(arg):
+                # Phone-like (touch, overlay sidebar) below Streamlit's 768px breakpoint
+                w, h = (int(v) for v in arg.split(","))
+                await call("Emulation.setDeviceMetricsOverride", width=w, height=h,
+                           deviceScaleFactor=1, mobile=w < 768)
+            # size: steps before any other step apply before the page loads
+            first = 0
+            while first < len(STEPS) and STEPS[first].startswith("size:"):
+                await set_size(STEPS[first].partition(":")[2]); first += 1
             await call("Page.navigate", url="http://localhost:8599/")
-            for step in STEPS:
+            for step in STEPS[first:]:
                 kind, _, arg = step.partition(":")
-                if kind == "wait":
+                if kind == "size":
+                    await set_size(arg)
+                elif kind == "wait":
                     await asyncio.sleep(float(arg))
-                elif kind == "shot":
-                    r = await call("Page.captureScreenshot", format="png", captureBeyondViewport=True)
+                elif kind in ("shot", "shotv"):
+                    # shotv: the visible window only. A full-page shot resizes the page, which
+                    # can catch the phone sidebar part-way through sliding back in.
+                    r = await call("Page.captureScreenshot", format="png",
+                                   captureBeyondViewport=(kind == "shot"))
                     import base64
                     open(f"{OUT}_{arg}.png", "wb").write(base64.b64decode(r["data"]))
                 elif kind == "click":

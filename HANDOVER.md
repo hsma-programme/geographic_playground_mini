@@ -156,9 +156,11 @@ Chrome, opens `http://localhost:8599/` and runs steps:
     uv run python scripts/cdp_drive.py out/run1 wait:12 click:Barnstaple wait:3 click:Okehampton \
         click:"2 · Watch the optimiser" wait:2 click:"Run the optimiser" wait:8 shot:tall
 
-Steps: `wait:SECONDS`, `click:TEXT` (exact then substring match on buttons/tabs/pills), `tapsite:TEXT` (real
+Steps: `size:W,H` (window size; `mobile` emulation below 768px wide; leading `size:` steps apply before the
+page loads), `wait:SECONDS`, `click:TEXT` (exact then substring match on buttons/tabs/pills), `tapsite:TEXT` (real
 mouse tap on the map marker whose hover text contains TEXT), `tapxy:X,Y` (mouse tap at a viewport position),
-`shot:NAME`, `js:EXPR`.
+`shot:NAME` (full page), `shotv:NAME` (visible window only), `js:EXPR`. Run one driver at a time: they all
+use debugging port 9333, so two at once share a browser and mix up their window sizes.
 It saves `out/run1_NAME.png`. Notes: `--virtual-time-budget` screenshots do NOT work (they capture only
 Streamlit's loading skeleton); allow roughly 12 seconds for first load; the window is 1500 wide and 2600 tall so
 the whole page shows. Chrome's path is hard-coded for Windows. `out/` and `*_profile/` are git-ignored.
@@ -168,7 +170,9 @@ Two quirks seen while doing the branding:
   Chrome never opened its debugging port and the script failed with `UnboundLocalError: ... 'tabs'`.
 - Screenshots often show the sidebar shifted left with its contents clipped. This is a capture artifact (the
   sidebar caught mid-transition): the DOM geometry is correct, later shots render it fine, and the DES mini shows
-  the same thing. Don't "fix" it in CSS.
+  the same thing. Don't "fix" it in CSS. At phone sizes it happens on every `shot:`. The likely cause is that a
+  full-page capture resizes the page and restarts the sidebar's slide-in; use `shotv:` there, which renders
+  it correctly.
 
 ## Branding and layout (done)
 
@@ -194,7 +198,8 @@ DES mini's is narrower) and the sidebar pills are slightly compact (`style.css`)
 (5 rows). The cost is height: the "By car" map options start about 830px down (measured in a 1500px-wide
 window), so on a 1080px stand screen they are near the fold and the public transport and demand options need a
 scroll. Metric labels wrap instead of ending in "..." because the results column is narrower; below the
-1070px container query the navbar title takes its own row (seen at 1500px wide, not expected at 1920).
+1070px container query the navbar swaps its pills for a dropdown (see "Small screens" below; seen at 1500px
+wide with the sidebar open, not at 1920).
 Note: the sidebar width rule used to target `[aria-expanded="true"]`, which this Streamlit never sets, so the
 sidebar was Streamlit's default 300px until this change; it now targets `[data-collapsed="false"]`. The DES
 mini's `style.css` has the same dead selector.
@@ -217,6 +222,31 @@ visitor's own per-centre gains in tap order (they can rise, which muddies the me
 Chrome for car and public transport in all three views, with the sentence numbers matching a scratch exhaustive
 run. Not verified: the "nobody is too far" message (cutoff view with a cutoff so high that nobody is beyond it),
 the 2036 demand, touch, and narrow screens.
+
+### Small screens (ported from the DES mini's `shorten-animation` branch)
+
+- **Sidebar expand button.** Streamlit draws the expand button (and a copy of the logo) inside `stToolbar`,
+  which `style.css` used to hide, so once the sidebar was collapsed there was no way to reopen it at any width.
+  Streamlit also appears to remember the collapsed state in the browser (read from its JS bundle, not
+  tested), so on the stand it could have stayed shut after a reload. The toolbar now stays, click-through
+  except for the button, with the menu and header-logo copy hidden. The button is moved down level with the
+  navbar title, and the title is indented to clear it. The collapse button stays visible at every width,
+  unlike the DES mini, which hides it on desktop.
+- **Page dropdown.** `mobile_nav.py` (`add_mobile_nav`, called just before `st.tabs`) adds a `<select>` to the
+  navbar. It is shown in place of the pills when the navbar is under 1070px wide (the same container query
+  that used to put the title on its own row). The DES mini uses a 1320px viewport query instead. Its
+  container and that container's layout wrapper are hidden; the wrapper would otherwise take an 18px flex gap
+  and push the navbar down.
+- **Reflow, 640-1300px.** Rows inside `reflow_stack_*` / `reflow_halves_*` keyed containers wrap: tab 2's "best
+  place" cards go two per line, and tab 2's compare maps and tab 3's verdict and chart-guide rows stack. Tab 1's
+  map and results deliberately stay side by side, so the numbers stay in view while tapping.
+- **Phones (under 768px).** The sidebar drops the 24rem `min-width` so Streamlit's own cap (about 90% of the
+  screen) applies; at 24rem it ran off a phone. Smaller navbar title (1.25rem, to fit beside the expand button at
+  360px) and dropdown text, and 1rem text on the big call-to-action buttons.
+- Not ported: unpinned dataframe index (no `st.dataframe` here), the animation-gap fix (this animation has no
+  zoom-to-fit script), preset label wrapping (no presets), the Streamlit 1.63.0 pin (not a screen-size fix).
+- Verified in headless Chrome at 1920, 1500, 1000, 390 and 360 wide. Not tried on a real phone, tablet or
+  touchscreen, or with the native `<select>` picker that phones show.
 
 
 ## Suggested next steps

@@ -29,6 +29,7 @@ from core import (
 )
 import pareto
 from animation import render_optimiser_animation
+from mobile_nav import add_mobile_nav
 from figures import (
     MAP_ZOOM_CONFIG,
     compare_map,
@@ -337,6 +338,9 @@ who = "People aged 50-84" + (" in 2036" if demand == "2036" else "")
 tapped_sites = tuple(st.session_state.new_sites[:MAX_NEW_SITES])
 new_sites = tuple(sorted(tapped_sites))
 has_new = bool(new_sites)
+
+# Dropdown in place of the tab pills on narrower screens (shown by style.css)
+add_mobile_nav()
 
 # on_change="rerun" tracks the open tab, so the sidebar can be tab 1's alone
 TAB_LABELS = ["1 · You choose", "2 · Watch the optimiser", "3 · Weigh it up"]
@@ -656,7 +660,11 @@ with tab_opt:
             titles = {k: OBJECTIVES[k][0] for k in keys} | {
                 "beyond": f"Fewest people over {opt_cutoff} min away"
             }
-            for col, key in zip(st.columns(len(keys)), keys):
+            # The keyed containers here and below let style.css wrap these rows
+            # onto more lines on narrower screens
+            for col, key in zip(
+                st.container(key="reflow_halves_questions").columns(len(keys)), keys
+            ):
                 title, blurb = titles[key], OBJECTIVES[key][2]
                 winner = scores.loc[scores[key].idxmin()]
                 yours = rank_of(scores, new_sites, key)
@@ -713,7 +721,7 @@ with tab_opt:
             else:
                 vs_yours = gain_fmt.format(gain).capitalize() + " than your pick"
             # Score in bold, then one smaller line on each side, so the two maps stay level
-            left, right = st.columns(2)
+            left, right = st.container(key="reflow_stack_compare_maps").columns(2)
             left.subheader("Your pick")
             left.markdown(f"**{score_fmt.format(your_score, cutoff=opt_cutoff)}**")
             left.caption(
@@ -856,7 +864,9 @@ with tab_trade:
                 unsafe_allow_html=True,
             )
             if beater is not None:
-                verdict_col, table_col = st.columns([2, 3], vertical_alignment="center")
+                verdict_col, table_col = st.container(key="reflow_stack_verdict").columns(
+                    [2, 3], vertical_alignment="center"
+                )
                 verdict_col.warning(
                     f"**{beater}** is at least as good as your pick, {label(data, new_sites)}, "
                     "on every question you picked, and better on at least one."
@@ -891,7 +901,9 @@ with tab_trade:
             with st.expander(
                 "How to read this chart", expanded=True, key="chart_guide", icon=":material/help:"
             ):
-                example_col, steps_col = st.columns([4, 5], vertical_alignment="center")
+                example_col, steps_col = st.container(key="reflow_stack_guide").columns(
+                    [4, 5], vertical_alignment="center"
+                )
                 example_col.plotly_chart(
                     pareto.guide_chart(kind),
                     key=f"guide_{kind}",
