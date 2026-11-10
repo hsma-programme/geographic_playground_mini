@@ -259,15 +259,22 @@ the box behind a divider, with text on the left and the chart on the right (they
 own picks ("I've chosen one centre but it talks about 8", "what is the yellow bar?"). A later version outlined the
 visitor's current number of centres in yellow ("you" under the tick) while warning the bars "may not be the towns
 you picked", which read as contradictory. So the panel now never mentions the visitor's picks (it doesn't depend on
-them): its text says each bar uses the best sites and the budget covers 3 (solid bars), and it ends with a prompt
-to try a different option under "What the map shows" (also shown on the "nobody is too far" message). The panel
+them): its text says each bar uses the best sites, and it ends with a prompt to try a different option under "What
+the map shows" (also shown on the "nobody is too far" message). The budget is marked on the chart itself rather
+than in the text, and a line under the chart asks whether each extra centre is worth its cost. The panel
 (`render_what_if` in `streamlit_app.py`, `best_by_count` in `core.py`, `diminishing_returns_chart` in `figures.py`)
 shows what the best 1st to 8th extra
 centre adds, on the measure the sidebar map is showing: people within the cutoff ("too far" view), minutes cut from
 the average journey ("journey time"), minutes cut from the average in the most deprived areas ("most deprived";
-`best_by_count` has a `deprived` series for it), or people with a closer centre ("closest centre" and "quicker journey"). Each count uses its own
-best combination for that measure, so the bars always fall. Bars within the 3-centre budget are solid, the rest
-faded. Deliberately left out: the
+`best_by_count` has a `deprived` series for it), or people with a closer centre ("closest centre" and "quicker journey",
+the same measure worded to match each map). "Quicker journey" adds a second chart: the average minutes saved per
+person helped (`best_by_count`'s `saved` series), for the combination that helps the most people. That one is a
+level, not a gain, because it can dip as centres are added (car at 4, public transport at 3), which would give
+negative bars. Each count uses its own
+best combination for that measure, so the bars always fall. Bars within the 3-centre budget are solid; the rest
+are faded on a shaded background behind a dashed line, under "Within budget" / "Over budget" labels. The "1".."8"
+x labels look numeric, so plotly makes the axis linear (bar k at x = k), which is what the line's position assumes.
+Deliberately left out: the
 visitor's own per-centre gains in tap order (they can rise, which muddies the message). Verified in headless
 Chrome for car and public transport in all three views, with the sentence numbers matching a scratch exhaustive
 run. The new layout was checked in headless Chrome at 1500, 1000 and 390 wide, with 0, 1 and 3 centres, and with

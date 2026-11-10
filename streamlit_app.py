@@ -239,7 +239,7 @@ def render_what_if(mode, cutoff, view):
     try_another = (
         "Try a different option under **What the map shows** on the left - car or public "
         "transport, another goal, or a different 'too far' time - and see how many centres "
-        "each goal needs."
+        "each goal needs.\n\n:small[Your selected centres don't change this chart.]"
     )
     if view == "cutoff" and best["beyond"][0] == 0:
         st.markdown("**What if the budget were bigger?**")
@@ -259,7 +259,11 @@ def render_what_if(mode, cutoff, view):
     elif view in ("time", "deprived"):
         series = best["deprived" if view == "deprived" else "avg"]
         gains = [series[i - 1] - series[i] for i in range(1, len(series))]
-        y_title = "Minutes cut from average"
+        y_title = (
+            "Minutes cut from average<br>(most deprived areas only)"
+            if view == "deprived"
+            else "Minutes cut from average"
+        )
         fmt = lambda g: f"{g:.1f}"
         whose = (
             "the average journey in the most deprived areas"
@@ -269,12 +273,18 @@ def render_what_if(mode, cutoff, view):
         say = lambda g: f"{whose} by {g:.1f} min"
         say_last = lambda g: f"it by a further {g:.1f} min"
     else:
+        # The same measure (nearest centre now quicker), worded to match each map
         series = best["helped"]
         gains = [series[i] - series[i - 1] for i in range(1, len(series))]
-        y_title = "Extra people helped"
         fmt = lambda g: f"{g / 1000:.0f}k"
-        say = lambda g: f"{round(g, -2):,.0f} people a closer centre"
-        say_last = lambda g: f"{round(g, -2):,.0f} more people a closer centre"
+        if view == "gain":
+            y_title = "Extra people with<br>a quicker journey"
+            say = lambda g: f"{round(g, -2):,.0f} people a quicker journey"
+            say_last = lambda g: f"{round(g, -2):,.0f} more people a quicker journey"
+        else:
+            y_title = "Extra people with a<br>closer centre than before"
+            say = lambda g: f"{round(g, -2):,.0f} people a closer centre than before"
+            say_last = lambda g: f"{round(g, -2):,.0f} more people a closer centre than before"
 
     verb = {
         "cutoff": "brings",
@@ -300,6 +310,12 @@ def render_what_if(mode, cutoff, view):
     else:
         k = len(gains) - 1
         later = f" Going from {k} to {k + 1} new centres {verb} {say_last(gains[k])}."
+    if view == "gain":
+        saved = best["saved"][1:]
+        later += (
+            f" Those people save {saved[0]:.0f} minutes each on average with 1 new centre, "
+            f"and {saved[-1]:.0f} minutes with {len(saved)}."
+        )
 
     # Text beside the chart; the reflow_stack_ key stacks them on narrower screens
     text_col, chart_col = st.container(key="reflow_stack_what_if").columns(
@@ -310,8 +326,7 @@ def render_what_if(mode, cutoff, view):
             "**What if the budget were bigger?** "
             f"For each number of new centres, from 1 to {len(gains)}, the computer found the "
             f"best places for {measure}, and each bar is how much that extra "
-            f"centre adds. The budget covers {MAX_NEW_SITES} (the solid bars); the faded bars "
-            "show what more money would buy."
+            "centre adds."
         )
         st.markdown(first + later)
         st.info(try_another, icon=":material/tune:")
@@ -320,6 +335,30 @@ def render_what_if(mode, cutoff, view):
         key="what_if",
         width="stretch",
         config={"displayModeBar": False},
+    )
+    if view == "gain":
+        # A level, not a gain: what each extra centre adds can be negative (the extra
+        # people helped may save less than the average so far)
+        chart_col.markdown("**And how much quicker is it for them?**")
+        chart_col.plotly_chart(
+            diminishing_returns_chart(
+                best["saved"][1:],
+                MAX_NEW_SITES,
+                "Average minutes saved<br>per person helped",
+                lambda g: f"{g:.0f}",
+            ),
+            key="what_if_saved",
+            width="stretch",
+            config={"displayModeBar": False},
+        )
+        chart_col.caption(
+            "Each bar is the average for that many new centres, in the places that help "
+            "the most people, not what the extra centre adds."
+        )
+    chart_col.markdown(
+        "**Is each extra centre worth what it costs?** There's rarely a clean yes or no. "
+        "It depends on what a centre costs, how much each bar is worth to you, "
+        "and what else that money could do."
     )
 
 

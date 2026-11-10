@@ -217,7 +217,8 @@ MAP_ZOOM_CONFIG = {
 def diminishing_returns_chart(gains, budget, y_title, fmt, height=280) -> go.Figure:
     """Bars of what each extra centre adds (best possible choice each time).
 
-    Bars within the budget are solid, the rest faded.
+    Bars within the budget are solid; the rest are faded, on a shaded background
+    behind a dashed line, with "Within budget" / "Over budget" labels above.
     """
     n = len(gains)
     fig = go.Figure(
@@ -234,12 +235,26 @@ def diminishing_returns_chart(gains, budget, y_title, fmt, height=280) -> go.Fig
             hoverinfo="skip",
         )
     )
+    if budget < n:
+        # The "1".."n" labels look numeric, so plotly makes this a linear axis with bar k
+        # at x = k; the gap after the last bar in budget is at budget + 0.5
+        edge = budget + 0.5
+        fig.add_vrect(
+            x0=edge, x1=n + 0.5, fillcolor="rgba(255,255,255,0.07)", line_width=0, layer="below"
+        )
+        fig.add_vline(x=edge, line=dict(color="rgba(255,255,255,0.6)", width=2, dash="dash"))
+        for x, text in [((0.5 + edge) / 2, "Within budget"), ((edge + n + 0.5) / 2, "Over budget")]:
+            fig.add_annotation(
+                x=x, y=1, xref="x", yref="paper", yanchor="bottom", yshift=14,
+                text=f"<b>{text}</b>", showarrow=False, font=dict(size=14),
+            )
     fig.update_layout(
-        height=height, margin=dict(l=0, r=0, t=24, b=0), showlegend=False,
+        height=height, margin=dict(l=0, r=0, t=48, b=0), showlegend=False,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         xaxis=dict(
-            title="Number of new centres (faded = over budget)", tickfont=dict(size=14), fixedrange=True,
+            title="Number of new centres", tickfont=dict(size=14), fixedrange=True,
             tickmode="array", tickvals=[f"{i}" for i in range(1, n + 1)],
+            range=[0.5, n + 0.5],
         ),
         yaxis=dict(title=y_title, tickfont=dict(size=12), fixedrange=True, rangemode="tozero"),
         bargap=0.25,
