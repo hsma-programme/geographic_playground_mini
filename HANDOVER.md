@@ -211,8 +211,16 @@ around Kingsbridge; the help hover and footer say so. With the default cutoffs i
 with 2-3 new centres (Kingsbridge joins the "shortest average journey" winner, and the 2-centre "fewest far away"
 one); with 1 new centre, or by public transport, the winners don't change. The map colours don't depend on demand; only the closest-centre view's hover and caption (each centre's share of patients) do.
 
-Tab 1 also has a "What if the budget were bigger?" panel, full width below the map and metrics behind a divider (`render_what_if` in `streamlit_app.py`,
-`best_by_count` in `core.py`, `diminishing_returns_chart` in `figures.py`). It shows what the best 1st to 8th extra
+Tab 1 ends with the "Watch the optimiser" button, in an outlined box right after the map and results (`next_step`
+container; the button is bigger than the other call-to-action buttons, with a teal glow), with a muted line
+pointing to an optional extra further down. That extra, "Extra: how many centres would be enough?", sits below
+the box behind a divider, with text on the left and the chart on the right (they stack under 1300px via
+`reflow_stack_what_if`). It used to sit under the map, beside the results, and a reviewer read it as tied to their
+own picks ("I've chosen one centre but it talks about 8", "what is the yellow bar?"). So its text now says it steps
+back from the towns you picked, that each bar uses the best sites, that the budget covers 3 (solid bars), and that
+the yellow outline is your current number of centres; the outlined bar's tick also reads "you". The panel
+(`render_what_if` in `streamlit_app.py`, `best_by_count` in `core.py`, `diminishing_returns_chart` in `figures.py`)
+shows what the best 1st to 8th extra
 centre adds, on the measure the sidebar map is showing: people within the cutoff ("too far" view), minutes cut from
 the average journey ("journey time"), minutes cut from the average in the most deprived areas ("most deprived";
 `best_by_count` has a `deprived` series for it), or people with a closer centre ("closest centre" and "quicker journey"). Each count uses its own
@@ -220,8 +228,10 @@ best combination for that measure, so the bars always fall. Bars within the 3-ce
 faded, and the bar for the visitor's current number of centres is outlined yellow. Deliberately left out: the
 visitor's own per-centre gains in tap order (they can rise, which muddies the message). Verified in headless
 Chrome for car and public transport in all three views, with the sentence numbers matching a scratch exhaustive
-run. Not verified: the "nobody is too far" message (cutoff view with a cutoff so high that nobody is beyond it),
-the 2036 demand, touch, and narrow screens.
+run. The new layout was checked in headless Chrome at 1500, 1000 and 390 wide, with 0, 1 and 3 centres, and with
+a 115-minute car cutoff (the "nobody is too far" message). Not verified: the 2036 demand and touch. At 390 wide
+the chart's y-axis title looked clipped by a character at the left edge; not yet checked whether that predates the
+move.
 
 ### Small screens (ported from the DES mini's `shorten-animation` branch)
 

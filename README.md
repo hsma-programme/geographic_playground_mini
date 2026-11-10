@@ -7,8 +7,9 @@ diagnostic centres in Devon go? Companion to the full 45-minute playground.
   journeys change. The sidebar switches between car and public transport, picks what the map
   shows (journey time, who is too far, the most deprived areas, who gets a quicker journey, or
   each area's closest centre), sets the "too far" cutoff, and switches between today's population
-  and a projected 2036 one. A journey-time chart and a "what if the budget were bigger?" panel sit
-  alongside, and a button at the bottom moves on to tab 2.
+  and a projected 2036 one. A journey-time chart sits alongside the map, then a big button moves on
+  to tab 2. Below that, an optional "how many centres would be enough?" panel shows what each extra
+  centre would add if the budget were bigger.
 - **Tab 2 · Watch the optimiser** - an animated map tries every way of placing the same number of
   centres (scored on average journey time by car, today's population), then shows that a different
   question picks a different winner, and compares your pick with each winner side by side.

@@ -216,15 +216,16 @@ def number_boxes(items):
 def render_what_if(mode, cutoff, demand, view, n_chosen):
     """Diminishing returns: what each extra centre adds, on the measure the map is showing."""
     best = best_by_count(mode, float(cutoff), demand)
-    st.subheader("What if the budget were bigger?")
+    st.subheader("Extra: how many centres would be enough?")
+    if view == "cutoff" and best["beyond"][0] == 0:
+        st.markdown("**What if the budget were bigger?**")
+        st.caption(
+            f"Nobody is more than {cutoff} minutes from a centre today, so extra centres "
+            "can't help on this measure."
+        )
+        return
     if view == "cutoff":
         series = best["beyond"]
-        if series[0] == 0:
-            st.caption(
-                f"Nobody is more than {cutoff} minutes from a centre today, so extra centres "
-                "can't help on this measure."
-            )
-            return
         gains = [series[i - 1] - series[i] for i in range(1, len(series))]
         y_title = f"Extra people within {cutoff} min"
         fmt = lambda g: f"{g / 1000:.1f}k" if g >= 50 else "0"
@@ -274,14 +275,35 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
     else:
         k = len(gains) - 1
         later = f" Going from {k} to {k + 1} new centres {verb} {say_last(gains[k])}."
-    st.markdown(first + later)
-    st.plotly_chart(
+
+    # Text beside the chart; the reflow_stack_ key stacks them on narrower screens
+    text_col, chart_col = st.container(key="reflow_stack_what_if").columns(
+        [2, 3], gap="large"
+    )
+    with text_col:
+        st.markdown(
+            "**What if the budget were bigger?** This steps back from the towns you picked. "
+            f"For each number of new centres, from 1 to {len(gains)}, the computer found the "
+            "best places for what the map is showing, and each bar is how much that extra "
+            f"centre adds. Your budget covers {MAX_NEW_SITES} (the solid bars); the faded bars "
+            "show what more money would buy."
+        )
+        st.markdown(
+            "The bar outlined in yellow is where you are now: "
+            f"**{n_chosen} new centre{'s' if n_chosen > 1 else ''}**."
+            if n_chosen
+            else "Pick some centres and the bar for how many you've chosen is outlined in yellow."
+        )
+        st.markdown(first + later)
+    chart_col.plotly_chart(
         diminishing_returns_chart(gains, n_chosen, MAX_NEW_SITES, y_title, fmt),
         key="what_if",
         width="stretch",
         config={"displayModeBar": False},
     )
-    st.caption("Each bar uses the best choice of sites for this measure.")
+    chart_col.caption(
+        "Each bar uses the best choice of sites for this measure, which may not be the towns you picked."
+    )
 
 
 def on_sites_change():
@@ -599,23 +621,30 @@ with tab_build:
             on_select=lambda key=map_key: on_map_click(key),
             selection_mode="points",
         )
-        render_what_if(mode, cutoff, demand, view, len(new_sites))
 
     st.divider()
-    st.markdown(
-        f"**Is {label(data, new_sites)} the best place?** Let a computer try every option."
-        if has_new
-        else "**Pick a new centre on the map**, then see if a computer can beat it."
-    )
-    st.button(
-        "Watch the optimiser",
-        key="go_to_optimiser",
-        icon=":material/arrow_forward:",
-        type="primary",
-        disabled=not has_new,
-        on_click=go_to_tab,
-        args=(TAB_LABELS[1],),
-    )
+    # The main way on, so it comes straight after the results; the extra panel sits below it
+    with st.container(key="next_step"):
+        st.markdown(
+            f"### Is {label(data, new_sites)} the best place?\nLet a computer try every option."
+            if has_new
+            else "### Pick a new centre on the map\nThen see if a computer can beat it."
+        )
+        st.button(
+            "Watch the optimiser",
+            key="go_to_optimiser",
+            icon=":material/arrow_forward:",
+            type="primary",
+            disabled=not has_new,
+            on_click=go_to_tab,
+            args=(TAB_LABELS[1],),
+        )
+        st.caption(
+            "Or scroll down for an extra: how many centres would be enough?",
+        )
+
+    st.divider()
+    render_what_if(mode, cutoff, demand, view, len(new_sites))
 
 # ---------------------------------------------------------------- tab 2
 with tab_opt:

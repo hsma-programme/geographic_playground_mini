@@ -221,8 +221,13 @@ def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280)
         height=height, margin=dict(l=0, r=0, t=24, b=0), showlegend=False,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         xaxis=dict(
-            title="Extra centre (faded = over budget)", tickfont=dict(size=14), fixedrange=True,
+            title="Number of new centres (faded = over budget)", tickfont=dict(size=14), fixedrange=True,
             tickmode="array", tickvals=[f"{i}" for i in range(1, n + 1)],
+            # Name the outlined bar under its tick, so the outline explains itself
+            ticktext=[
+                f"<b>{i}</b><br><span style='color:{NEW_SITE}'>you</span>" if i == n_chosen else f"{i}"
+                for i in range(1, n + 1)
+            ],
         ),
         yaxis=dict(title=y_title, tickfont=dict(size=12), fixedrange=True, rangemode="tozero"),
         bargap=0.25,

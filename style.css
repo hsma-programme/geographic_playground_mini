@@ -164,6 +164,29 @@ section[data-testid="stSidebar"][data-collapsed="false"] {
 	letter-spacing: 0.05em;
 }
 
+/* Tab 1's "Watch the optimiser" is the main way on, so it is bigger than the others and sits
+   in a lightly outlined box with its prompt above and a pointer to the extra panel below */
+.st-key-next_step {
+	padding: 1.25rem 1.5rem;
+	border: 2px solid rgba(31, 177, 185, 0.55);
+	border-radius: 0.75rem;
+	background-color: rgba(31, 177, 185, 0.06);
+}
+.st-key-next_step h3 {
+	padding-top: 0;
+}
+.st-key-go_to_optimiser {
+	margin: 0.5rem 0 0.25rem;
+}
+.st-key-go_to_optimiser button:not(:disabled) {
+	min-height: 4.5rem;
+	padding: 0 3rem;
+	box-shadow: 0 0 1.25rem rgba(31, 177, 185, 0.45);
+}
+.st-key-go_to_optimiser button p {
+	font-size: 1.6rem !important;
+}
+
 .st-key-run_optimiser button:hover,
 .st-key-run_optimiser button:focus:not(:active),
 .st-key-go_to_optimiser button:not(:disabled):hover,
@@ -466,5 +489,12 @@ section[data-testid="stSidebar"] [data-testid="stPills"] button p { font-size: 0
 	.st-key-go_to_optimiser button p,
 	.st-key-to_trade button p {
 		font-size: 1rem !important;
+	}
+	.st-key-go_to_optimiser button:not(:disabled) {
+		min-height: 3.5rem;
+		padding: 0 1.5rem;
+	}
+	.st-key-next_step {
+		padding: 1rem;
 	}
 }
