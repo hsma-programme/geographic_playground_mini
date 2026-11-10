@@ -383,9 +383,10 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
     else:
         # tickangle=0: plotly tilts crowded labels, which makes the multi-line ones unreadable
         fig.update_xaxes(ticktext=labels, tickangle=0)
-        # lokigi's title says "Better ↑", but plotly turns y-axis titles to read upwards,
-        # which leaves that arrow pointing left; → points up once turned
-        fig.update_yaxes(title_text="Better → (rescaled per metric)")
+        # lokigi's title says "Better ↑", which read as "bottom to top of the axis".
+        # Worst and best match the words in the "How to read this chart" example.
+        # plotly turns y-axis titles to read upwards, so → points up and Worst sits at the bottom
+        fig.update_yaxes(title_text="Worst → Best")
         for trace in fig.data:
             if trace.showlegend is False:  # the one trace of ruled-out options
                 trace.opacity = 0.3
