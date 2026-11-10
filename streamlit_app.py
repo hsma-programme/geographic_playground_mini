@@ -154,9 +154,13 @@ st.session_state.setdefault("view", "cutoff")
 st.session_state.setdefault("map_choice_car", ("cutoff", "car"))
 st.session_state.setdefault("map_choice_pt", None)
 st.session_state.setdefault("map_choice_future", None)
+# Your new centres. A plain key, not a widget's: the sidebar pills and map only show it
 st.session_state.setdefault("new_sites", [])
-# Bumped after each map tap so the chart remounts with no point left selected
-st.session_state.setdefault("map_taps", 0)
+# Bumped whenever the server changes new_sites (a map tap, "Start again", "Surprise me"). The
+# pills and the map are keyed by it, so a quick tap sent before the rerun reaches the browser
+# arrives under the old keys and can't replace new_sites with the browser's out-of-date picks.
+# It also remounts the map with no point left selected.
+st.session_state.setdefault("sites_version", 0)
 
 # Sidebar map radios: one per travel mode, plus "Looking ahead"; choosing in one clears the others
 MAP_GROUPS = ["car", "pt", "future"]
@@ -179,6 +183,7 @@ def on_map_choice_change(group):
 
 def clear_sites():
     st.session_state.new_sites = []
+    st.session_state.sites_version += 1
     st.session_state.optimiser_ran = False
 
 
@@ -191,6 +196,7 @@ def go_to_tab(label):
 def surprise_me():
     n = random.randint(1, MAX_NEW_SITES)
     st.session_state.new_sites = random.sample(list(data.candidates), n)
+    st.session_state.sites_version += 1
     st.session_state.optimiser_ran = False
 
 
@@ -490,7 +496,9 @@ def on_growth_mode_change():
         st.session_state.cutoff = DEFAULT_CUTOFF[chosen]
 
 
-def on_sites_change():
+def on_sites_change(key):
+    """A pill tap: the browser already shows this value, so the version stays put."""
+    st.session_state.new_sites = list(st.session_state[key])
     st.session_state.optimiser_ran = False
 
 
@@ -501,10 +509,10 @@ TAPPABLE_TRACES = {2, 3, 4}
 def on_map_click(key):
     """Tapping a site on the map adds it, or removes it if already chosen."""
     # Read the map that was tapped: a quick second tap can land on the previous map
-    # before the rerun replaces it, by which point map_taps has already moved on
+    # before the rerun replaces it, by which point sites_version has already moved on
     points = st.session_state[key].selection.points
     tapped = [p["customdata"] for p in points if p["curve_number"] in TAPPABLE_TRACES]
-    st.session_state.map_taps += 1
+    st.session_state.sites_version += 1
     if not tapped:
         return
     site = tapped[0]
@@ -577,14 +585,17 @@ with st.sidebar:
             )
         # Picking towns is the main action, so it comes first
         st.subheader("Your new centres")
+        # Versioned key (see sites_version); new_sites survives tab switches on its own
+        pills_key = f"site_pills_{st.session_state.sites_version}"
         st.pills(
             f"Add up to {MAX_NEW_SITES} new centres",
             data.candidates,
             format_func=lambda i: data.short_names[i],
             selection_mode="multi",
-            key="new_sites",
+            default=st.session_state.new_sites,
+            key=pills_key,
             on_change=on_sites_change,
-            persist_state="page",
+            args=(pills_key,),
         )
         if len(st.session_state.new_sites) > MAX_NEW_SITES:
             st.warning(
@@ -862,7 +873,7 @@ with tab_build:
                 f"Red areas are more than {cutoff} minutes from the nearest centre."
             )
         st.caption(map_note + " Click and drag to move the map.")
-        map_key = f"main_map_{st.session_state.map_taps}"
+        map_key = f"main_map_{st.session_state.sites_version}"
         st.plotly_chart(
             travel_map(
                 data,

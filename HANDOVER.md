@@ -140,9 +140,13 @@ or zooming in. The sidebar now has ten map options (five per mode), which is the
    files with prose.
 6. **Tapping a site on the map** uses `st.plotly_chart(on_select=on_map_click, selection_mode="points")`, which
    does work on `Scattermap` traces. Two things it needs: every trace sets `selected`/`unselected` opacity, or
-   plotly fades everything but the tapped dot; and the chart key carries a counter (`main_map_{map_taps}`)
+   plotly fades everything but the tapped dot; and the chart key carries a counter (`main_map_{sites_version}`)
    bumped on each tap, so the chart remounts with nothing selected. Without it a stale selection would swallow
-   the next tap on the same trace position. The callback matches on `customdata` (site index) and only on
+   the next tap on the same trace position. The sidebar pills share that counter (`site_pills_{sites_version}`)
+   and only mirror the plain `new_sites` key: if the pills were keyed `new_sites` themselves, a second tap sent
+   before the first tap's rerun reached the browser would carry the browser's out-of-date pills value, which
+   Streamlit treats as a fresh pill change, so the first site was swapped out. "Start again" and "Surprise me"
+   bump the counter too. The callback matches on `customdata` (site index) and only on
    traces 2-4 (possible new centres, then the chosen centres' dark outline and yellow dot), so taps on areas
    and existing centres do nothing. Map markers have no outline property, hence the separate outline trace;
    `animation.py` moves traces 3 and 4 together.
