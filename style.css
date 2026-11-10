@@ -139,6 +139,7 @@ section[data-testid="stSidebar"][data-collapsed="false"] {
 }
 
 /* ---- Big call-to-action buttons ("Run the optimiser" and the next-tab buttons) ---- */
+.st-key-fast_forward_button button,
 .st-key-run_optimiser button,
 .st-key-go_to_optimiser button:not(:disabled),
 .st-key-to_trade button {
@@ -150,12 +151,14 @@ section[data-testid="stSidebar"][data-collapsed="false"] {
 	color: #ffffff;
 }
 
+.st-key-fast_forward_button,
 .st-key-run_optimiser,
 .st-key-go_to_optimiser,
 .st-key-to_trade {
 	margin: 0.75rem 0 1.5rem;
 }
 
+.st-key-fast_forward_button button p,
 .st-key-run_optimiser button p,
 .st-key-go_to_optimiser button p,
 .st-key-to_trade button p {
@@ -195,7 +198,9 @@ section[data-testid="stSidebar"][data-collapsed="false"] {
 	font-size: 1.6rem !important;
 }
 
+.st-key-fast_forward_button button:hover,
 .st-key-run_optimiser button:hover,
+.st-key-fast_forward_button button:focus:not(:active),
 .st-key-run_optimiser button:focus:not(:active),
 .st-key-go_to_optimiser button:not(:disabled):hover,
 .st-key-go_to_optimiser button:not(:disabled):focus:not(:active),
@@ -325,6 +330,7 @@ select.mobile-nav,
 [role="tablist"]::before,
 [data-testid="stTab"],
 [data-testid="stTab"] p,
+.st-key-fast_forward_button button p,
 .st-key-run_optimiser button p,
 .st-key-go_to_optimiser button p,
 .st-key-to_trade button p,
@@ -493,6 +499,7 @@ section[data-testid="stSidebar"] [data-testid="stPills"] button p { font-size: 0
 		font-size: 0.95rem;
 	}
 	/* Smaller text on the big call-to-action buttons. */
+	.st-key-fast_forward_button button p,
 	.st-key-run_optimiser button p,
 	.st-key-go_to_optimiser button p,
 	.st-key-to_trade button p {

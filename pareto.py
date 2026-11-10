@@ -102,7 +102,7 @@ def questions(cutoffs) -> dict:
 DEFAULT_QUESTIONS = {"car": ["beyond_car", "helped_car"], "pt": ["beyond_pt"], "service": []}
 
 
-def question_scores(data: Data, n_new: int, cutoffs, demand: str) -> pd.DataFrame:
+def question_scores(data: Data, n_new: int, cutoffs, demand: str = "today") -> pd.DataFrame:
     """Every combination scored by car and by public transport side by side (columns end _car / _pt)."""
     frames = {m: score_all_combinations(m, n_new, float(cutoffs[m]), demand) for m in MODE_NAME}
     # Both enumerate combinations in the same order, which is what lets us line the rows up

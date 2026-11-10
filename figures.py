@@ -25,6 +25,10 @@ GAIN_MAX = {"car": 45, "pt": 120}
 # area a new centre takes over stands out (no red, which means "too far" elsewhere)
 EXISTING_COLOURS = ["#4e79a7", "#59a14f", "#76b7b2", "#b07aa1"]
 NEW_COLOURS = ["#f28e2b", "#edc948", "#ff9da7"]
+# 'Where need grows' view: purple, since red and teal already mean "too far" and "quicker".
+# Tops out just above the biggest growth in any area (43%)
+GROWTH_COLORSCALE = [[0, "#f3eff8"], [1, "#4a1486"]]
+GROWTH_MAX = 45
 
 
 def _colorbar(title):
@@ -99,8 +103,9 @@ def travel_map(
     data: Data, mode, new_sites, cutoff, view, height=640, selectable=False, demand="today", legend=False
 ) -> go.Figure:
     """The interactive map: binary 'beyond the cutoff' view, a time gradient, that
-    gradient for the most deprived areas only, the minutes saved by new centres, or
-    each area coloured by its closest centre (hover shows each centre's share of patients).
+    gradient for the most deprived areas only, the minutes saved by new centres,
+    each area coloured by its closest centre (hover shows each centre's share of patients),
+    or how much each area's population aged 50-84 grows by 2036.
 
     selectable=True sizes and labels the candidate sites for tapping.
     legend=True adds a key to the 'beyond the cutoff' view (the other views have colour bars).
@@ -141,6 +146,23 @@ def travel_map(
             unselected=dict(marker=dict(opacity=0.75)),
             customdata=times.round(0),
             hovertemplate="%{customdata:.0f} minutes to nearest centre<extra></extra>",
+        )
+    elif view == "growth":
+        # How much the 50-84 population grows by 2036; the same whatever the mode or centres
+        now, later = data.demand["today"], data.demand["2036"]
+        growth = 100 * (later / now - 1)
+        choropleth = go.Choroplethmap(
+            geojson=data.geojson, locations=np.arange(len(growth)), z=growth,
+            zmin=0, zmax=GROWTH_MAX, colorscale=GROWTH_COLORSCALE,
+            colorbar=_colorbar("% more people<br>aged 50-84<br>by 2036"),
+            marker=dict(opacity=0.8, line_width=0),
+            selected=dict(marker=dict(opacity=0.8)),
+            unselected=dict(marker=dict(opacity=0.8)),
+            customdata=np.column_stack([now.round(0), later.round(0)]),
+            hovertemplate=(
+                "%{customdata[0]:,.0f} people aged 50-84 now, %{customdata[1]:,.0f} in 2036"
+                " (+%{z:.0f}%)<extra></extra>"
+            ),
         )
     elif view == "gain":
         # Only areas with a quicker nearest centre are coloured; the rest show the basemap

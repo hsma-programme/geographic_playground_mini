@@ -13,8 +13,8 @@ from pathlib import Path
 import streamlit as st
 
 from core import (
-    DEMANDS,
     MAX_NEW_SITES,
+    MODES,
     OBJECTIVES,
     best_by_count,
     label,
@@ -70,15 +70,19 @@ st.markdown(
 )
 
 data = load_data()
+# Biggest growth in any area's population aged 50-84 by 2036, in %. In this (fixed)
+# projection it is around Kingsbridge, which the captions that use it name
+GROWTH_TOP = float(100 * (data.demand["2036"] / data.demand["today"] - 1).max())
 DEFAULT_CUTOFF = {"car": 45, "pt": 90}
 # map view -> sidebar label (the travel mode is in the heading above each radio)
 MAP_VIEWS = {
-    "time": "Journey time",
     "cutoff": "Who is too far",
+    "time": "Journey time",
     "deprived": "Journey time for most deprived areas only",
     "gain": "Who gets a quicker journey",
     "nearest": "Closest centre",
 }
+# ("growth", "Where need grows by 2036") has its own "Looking ahead" radio in the sidebar
 
 # Tab 2's comparison maps: the tab 1 view that shows each optimiser question best
 OBJECTIVE_VIEW = {
@@ -149,21 +153,28 @@ st.session_state.setdefault("view", "cutoff")
 # One radio per travel mode; choosing in one clears the other
 st.session_state.setdefault("map_choice_car", ("cutoff", "car"))
 st.session_state.setdefault("map_choice_pt", None)
-st.session_state.setdefault("demand", "today")
+st.session_state.setdefault("map_choice_future", None)
 st.session_state.setdefault("new_sites", [])
 # Bumped after each map tap so the chart remounts with no point left selected
 st.session_state.setdefault("map_taps", 0)
 
+# Sidebar map radios: one per travel mode, plus "Looking ahead"; choosing in one clears the others
+MAP_GROUPS = ["car", "pt", "future"]
 
-def on_map_choice_change(mode):
-    """Switching travel mode resets the cutoff; switching only the map view keeps it."""
-    other = "pt" if mode == "car" else "car"
-    st.session_state[f"map_choice_{other}"] = None
-    view, _ = st.session_state[f"map_choice_{mode}"]
+
+def on_map_choice_change(group):
+    """Switching travel mode resets the cutoff; switching only the map view keeps it.
+
+    The "Looking ahead" view keeps whichever travel mode was last chosen.
+    """
+    for other in MAP_GROUPS:
+        if other != group:
+            st.session_state[f"map_choice_{other}"] = None
+    view, _ = st.session_state[f"map_choice_{group}"]
     st.session_state.view = view
-    if mode != st.session_state.mode:
-        st.session_state.mode = mode
-        st.session_state.cutoff = DEFAULT_CUTOFF[mode]
+    if group in DEFAULT_CUTOFF and group != st.session_state.mode:
+        st.session_state.mode = group
+        st.session_state.cutoff = DEFAULT_CUTOFF[group]
 
 
 def clear_sites():
@@ -183,14 +194,14 @@ def surprise_me():
     st.session_state.optimiser_ran = False
 
 
-def delta_kwargs(diff, unit, decimals, show, comma=False):
-    """st.metric delta arguments where lower is better; a zero change reads as neutral."""
+def delta_kwargs(diff, unit, decimals, show, comma=False, higher_better=False):
+    """st.metric delta arguments (lower is better unless higher_better); a zero change reads as neutral."""
     if not show:
         return {}
     if round(diff, decimals) == 0:
         return {"delta": "no change", "delta_color": "off", "delta_arrow": "off"}
     fmt = f"{{:+{',' if comma else ''}.{decimals}f}}"
-    return {"delta": fmt.format(diff) + unit, "delta_color": "inverse"}
+    return {"delta": fmt.format(diff) + unit, "delta_color": "normal" if higher_better else "inverse"}
 
 
 def rank_colour(rank, total):
@@ -213,9 +224,16 @@ def number_boxes(items):
     st.markdown(f"<div class='result-box'>{boxes}</div>", unsafe_allow_html=True)
 
 
-def render_what_if(mode, cutoff, demand, view, n_chosen):
-    """Diminishing returns: what each extra centre adds, on the measure the map is showing."""
-    best = best_by_count(mode, float(cutoff), demand)
+def render_what_if(mode, cutoff, view, n_chosen):
+    """Diminishing returns: what each extra centre adds, on the measure the map is showing.
+
+    The 'where need grows' map has no measure of its own, so it uses 'who is too far',
+    which its caption talks about.
+    """
+    measure = "what the map is showing"
+    if view == "growth":
+        view, measure = "cutoff", f"people more than {cutoff} minutes away"
+    best = best_by_count(mode, float(cutoff))
     st.subheader("Extra: how many centres would be enough?")
     if view == "cutoff" and best["beyond"][0] == 0:
         st.markdown("**What if the budget were bigger?**")
@@ -284,7 +302,7 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
         st.markdown(
             "**What if the budget were bigger?** This steps back from the towns you picked. "
             f"For each number of new centres, from 1 to {len(gains)}, the computer found the "
-            "best places for what the map is showing, and each bar is how much that extra "
+            f"best places for {measure}, and each bar is how much that extra "
             f"centre adds. Your budget covers {MAX_NEW_SITES} (the solid bars); the faded bars "
             "show what more money would buy."
         )
@@ -304,6 +322,121 @@ def render_what_if(mode, cutoff, demand, view, n_chosen):
     chart_col.caption(
         "Each bar uses the best choice of sites for this measure, which may not be the towns you picked."
     )
+
+
+# Tab 2's fast forward re-asks these questions with the 2036 population. Not the deprived
+# areas (they grow more slowly than elsewhere) or the longest journey (it ignores population)
+FUTURE_QUESTIONS = ["avg", "beyond"]
+
+
+def site_change(old, new):
+    """'Kingsbridge comes in, Okehampton drops out' between two sets of sites."""
+    came = [s for s in new if s not in old]
+    went = [s for s in old if s not in new]
+    names = lambda sites: " and ".join(data.short_names[i] for i in sites)
+    parts = []
+    if came:
+        parts.append(f"{names(came)} come{'s' if len(came) == 1 else ''} in")
+    if went:
+        parts.append(f"{names(went)} drop{'s' if len(went) == 1 else ''} out")
+    return ", ".join(parts)
+
+
+def on_fast_forward(sites):
+    # Remember which centres were fast-forwarded, so picking others hides the old answer
+    st.session_state.fast_forward = sites
+
+
+def render_fast_forward(scores, mode, cutoff, titles):
+    """Tab 2: does the winner, and your pick's rank, hold up with the 2036 population?"""
+    n_new = len(new_sites)
+    today_times = nearest_time(data, mode)
+    rise = summarise(data, today_times, cutoff, "2036")["beyond"] - summarise(
+        data, today_times, cutoff
+    )["beyond"]
+    st.subheader("Will it still be best in 10 years?")
+    st.markdown(
+        "By 2036 there will be more people aged 50-84 in Devon, growing faster in some places "
+        f"than others. If nothing changes, **{round(rise, -2):,.0f} more people** will live more "
+        f"than {cutoff} minutes from a centre. Fast forward to see if the best place changes."
+    )
+    st.button(
+        "Fast forward to 2036",
+        key="fast_forward_button",
+        icon=":material/fast_forward:",
+        on_click=on_fast_forward,
+        args=(new_sites,),
+    )
+    if st.session_state.get("fast_forward") != new_sites:
+        return
+
+    later = score_all_combinations(mode, n_new, float(cutoff), "2036")
+    n_total = len(scores)
+    map_col, cards_col = st.container(key="reflow_stack_future").columns(2, gap="large")
+    with map_col:
+        st.caption(
+            "Darker areas will have more people aged 50-84 by 2036, "
+            f"up to {GROWTH_TOP:.0f}% more around Kingsbridge."
+        )
+        st.plotly_chart(
+            compare_map(data, mode, new_sites, view="growth"),
+            key="map_growth",
+            width="stretch",
+            config={"displayModeBar": False},
+        )
+    with cards_col:
+        for key in FUTURE_QUESTIONS:
+            win_now = scores.loc[scores[key].idxmin(), "sites"]
+            win_later = later.loc[later[key].idxmin(), "sites"]
+            with st.container(border=True):
+                st.caption(titles[key])
+                st.markdown(
+                    f"Best in 2026: **{label(data, win_now)}**  \n"
+                    f"Best in 2036: **{label(data, win_later)}**"
+                )
+                if win_now == win_later:
+                    st.markdown("✅ Still the best in 2036: a choice that lasts.")
+                else:
+                    verdict = f"🔄 Changes by 2036: {site_change(win_now, win_later)}."
+                    # Minutes differences on the average are tiny, so only people are counted
+                    if key == "beyond":
+                        stay = [s == win_now for s in later["sites"]]
+                        lost = later.loc[stay, key].iloc[0] - later[key].min()
+                        if round(lost, -1) > 0:
+                            verdict += (
+                                f" Sticking with 2026's answer would leave {round(lost, -1):,.0f} "
+                                "more people too far away in 2036."
+                            )
+                    st.markdown(verdict)
+                r_now = rank_of(scores, new_sites, key)
+                r_later = rank_of(later, new_sites, key)
+                change = (
+                    "no change"
+                    if r_now == r_later
+                    else f"up {r_now - r_later}"
+                    if r_later < r_now
+                    else f"down {r_later - r_now}"
+                )
+                st.markdown(
+                    f"Your pick: <b style='color:{rank_colour(r_now, n_total)}'>#{r_now}</b> in 2026 → "
+                    f"<b style='color:{rank_colour(r_later, n_total)}'>#{r_later}</b> in 2036 "
+                    f"({change})" + (" 🏆" if r_later == 1 else ""),
+                    unsafe_allow_html=True,
+                )
+    st.markdown(
+        "Plans like this last for years, so "
+        "<span style='color:#ffe600;font-weight:700'>it's worth checking that the answer still "
+        "holds as the population changes</span>.",
+        unsafe_allow_html=True,
+    )
+
+
+def on_growth_mode_change():
+    """The 'where need grows' view's own car / public transport switch; resets the cutoff like the sidebar."""
+    chosen = st.session_state.growth_mode
+    if chosen != st.session_state.mode:
+        st.session_state.mode = chosen
+        st.session_state.cutoff = DEFAULT_CUTOFF[chosen]
 
 
 def on_sites_change():
@@ -352,10 +485,8 @@ for r, default in pareto.DEFAULT_QUESTIONS.items():
 mode = st.session_state.mode
 cutoff = st.session_state.cutoff
 view = st.session_state.view
-demand = st.session_state.get("demand", "today")
 # Each mode has its own cutoff: tab 1's slider for the mode it is showing, the default for the other
 cutoffs = {m: DEFAULT_CUTOFF[m] for m in DEFAULT_CUTOFF} | {mode: cutoff}
-who = "People aged 50-84" + (" in 2036" if demand == "2036" else "")
 # Tap order sets each new centre's colour on the 'closest site' map; sorted for everything else
 tapped_sites = tuple(st.session_state.new_sites[:MAX_NEW_SITES])
 new_sites = tuple(sorted(tapped_sites))
@@ -374,8 +505,9 @@ tab_build, tab_opt, tab_trade = st.tabs(
 
 # Controls are drawn first (they write session state), then the maps read it
 with st.sidebar:
-    # Mode, cutoff and demand only mean something on tab 1. Tab 3 follows them;
-    # tab 2 ignores them (it is always car, a 45-minute cutoff and today's population).
+    # Mode and cutoff only mean something on tab 1. Tab 3 follows them; tab 2 ignores
+    # them (it is always car and a 45-minute cutoff). Every tab counts today's population;
+    # 2036 appears only in the "Looking ahead" map and tab 2's fast forward.
     # persist_state keeps their values while they aren't drawn
     if tab_build.open:
         # NIHR logo, directly under the HSMA logo in the sidebar header
@@ -461,24 +593,22 @@ with st.sidebar:
 
         st.divider()
         st.subheader(
-            "Demand",
+            "Looking ahead",
             help=(
-                "Today uses ONS population estimates. The 2036 figures are an illustrative projection "
-                "made for teaching, not an official forecast: rural and coastal areas age faster than "
-                "the cities, especially in the South Hams."
+                "Today's numbers use ONS population estimates. The 2036 figures are an illustrative "
+                "projection made for teaching, not an official forecast: rural and coastal areas age "
+                "faster than the cities, especially in the South Hams."
             ),
         )
         st.radio(
-            "Whose journeys count",
-            list(DEMANDS),
-            format_func=DEMANDS.get,
-            key="demand",
+            "Map shows (looking ahead)",
+            [("growth", "future")],
+            format_func=lambda c: "Where need grows by 2036",
+            key="map_choice_future",
+            on_change=on_map_choice_change,
+            args=("future",),
             label_visibility="collapsed",
             persist_state="page",
-        )
-        st.caption(
-            "This doesn't change the map colours. Use it together with the options above: "
-            "it changes the numbers and the charts."
         )
 
 # ---------------------------------------------------------------- tab 1
@@ -508,59 +638,115 @@ with tab_build:
 
     today_times = nearest_time(data, mode)
     now_times = nearest_time(data, mode, new_sites)
-    people = data.demand[demand]
-    today = summarise(data, today_times, cutoff, demand)
-    now = summarise(data, now_times, cutoff, demand)
+    # Tab 1's numbers are for today's population, except the cards in the 'where need
+    # grows' view, which show 2036 and compare each figure with 2026 for the same centres
+    future = view == "growth"
+    people = data.demand["today"]
+    today = summarise(data, today_times, cutoff)
+    now = summarise(data, now_times, cutoff)
     # Anyone whose nearest centre is now quicker, whatever the time limit
     quicker = now_times < today_times
-    improved = float(people[quicker].sum())
     saved = (today_times - now_times)[quicker]
-    avg_saved = float((saved * people[quicker]).sum() / improved) if improved else 0.0
+
+    def helped(weights):
+        """(people helped, their average minutes saved) for one year's population."""
+        n = float(weights[quicker].sum())
+        return n, float((saved * weights[quicker]).sum() / n) if n else 0.0
+
+    improved, avg_saved = helped(people)
+    if future:
+        later = summarise(data, now_times, cutoff, "2036")
+        improved_later, avg_saved_later = helped(data.demand["2036"])
+        # Cards: (value, what the arrow compares it with, label suffix, arrow text)
+        shown, base, when, vs, show_delta = later, now, " in 2036", " vs 2026", True
+    else:
+        shown, base, when, vs, show_delta = now, today, "", " vs today's centres", has_new
 
     with results_col:
+        # The growth map has no travel mode of its own (the sidebar's car and public transport
+        # options are cleared), so say which one the numbers use, and let it be switched here
+        if view == "growth":
+            st.session_state.growth_mode = mode
+            st.segmented_control(
+                "Journeys",
+                list(MODES),
+                format_func=MODES.get,
+                required=True,
+                key="growth_mode",
+                on_change=on_growth_mode_change,
+                label_visibility="collapsed",
+            )
+            st.caption(
+                "Fast-forwarded to 2036, for the centres on the map. "
+                "The arrows show the change from 2026."
+            )
         with st.container(key="headline"):
             st.metric(
-                # Shorter ending in 2036 so the label still fits on one line
-                f"{who} more than {cutoff} min "
-                + ("away" if demand == "2036" else "from a centre"),
-                f"{now['beyond']:,.0f}",
+                f"People aged 50-84 more than {cutoff} min from a centre{when}",
+                f"{shown['beyond']:,.0f}",
                 **delta_kwargs(
-                    now["beyond"] - today["beyond"],
-                    " vs today's centres",
-                    0,
-                    has_new,
-                    comma=True,
+                    shown["beyond"] - base["beyond"], vs, 0, show_delta, comma=True
                 ),
             )
         m1, m2 = st.columns(2)
         m1.metric(
-            "Average journey",
-            f"{now['avg']:.1f} min",
-            **delta_kwargs(now["avg"] - today["avg"], " min", 1, has_new),
+            f"Average journey{when}",
+            f"{shown['avg']:.1f} min",
+            # No "vs 2026" here: it doesn't fit a half-width card, and the caption above says it
+            **delta_kwargs(shown["avg"] - base["avg"], " min", 1, show_delta),
+            # summarise() weights each area's journey by its people aged 50-84
+            help="The average journey per person aged 50-84, so areas where more people live count for more."
+            + (
+                " That's why it changes by 2036: numbers grow fastest in areas with longer journeys."
+                if future
+                else ""
+            ),
         )
         m2.metric(
-            "Longest journey",
-            f"{now['worst']:.0f} min",
-            **delta_kwargs(now["worst"] - today["worst"], " min", 0, has_new),
+            f"Longest journey{when}",
+            f"{shown['worst']:.0f} min",
+            **delta_kwargs(shown["worst"] - base["worst"], " min", 0, show_delta),
+            # Only a change of centres can move it, so in 2036 it always reads "no change"
+            help="The single longest journey doesn't depend on how many people live there."
+            if future
+            else None,
         )
         if has_new:
             m3, m4 = st.columns(2)
-            m3.metric(
-                "People helped",
-                f"{improved:,.0f}",
-                delta=f"{improved / people.sum():.1%} of everyone",
-                delta_color="off",
-                delta_arrow="off",
-                help=(
-                    f"{who} whose nearest centre is now quicker to reach, by any amount, "
-                    "and what share of everyone aged 50-84 that is."
-                ),
-            )
-            m4.metric(
-                "Average time saved",
-                f"{avg_saved:.1f} min",
-                help="Average minutes saved, counting only the people helped.",
-            )
+            if future:
+                m3.metric(
+                    "People helped in 2036",
+                    f"{improved_later:,.0f}",
+                    **delta_kwargs(
+                        improved_later - improved, vs, 0, True, comma=True, higher_better=True
+                    ),
+                    help="People aged 50-84 whose nearest centre is quicker to reach, by any amount.",
+                )
+                m4.metric(
+                    "Average time saved in 2036",
+                    f"{avg_saved_later:.1f} min",
+                    **delta_kwargs(
+                        avg_saved_later - avg_saved, " min", 1, True, higher_better=True
+                    ),
+                    help="Average minutes saved, counting only the people helped.",
+                )
+            else:
+                m3.metric(
+                    "People helped",
+                    f"{improved:,.0f}",
+                    delta=f"{improved / people.sum():.1%} of everyone",
+                    delta_color="off",
+                    delta_arrow="off",
+                    help=(
+                        "People aged 50-84 whose nearest centre is now quicker to reach, by any amount, "
+                        "and what share of everyone aged 50-84 that is."
+                    ),
+                )
+                m4.metric(
+                    "Average time saved",
+                    f"{avg_saved:.1f} min",
+                    help="Average minutes saved, counting only the people helped.",
+                )
         else:
             st.caption(
                 "Showing today's network. Tap a grey dot or a town on the left to add a centre."
@@ -586,13 +772,32 @@ with tab_build:
                 + ("" if has_new else " Add a centre to see who gains.")
             )
         elif view == "nearest":
-            shares = nearest_shares(data, mode, new_sites, demand)
+            shares = nearest_shares(data, mode, new_sites)
             busiest = max(shares, key=shares.get)
             map_note = (
                 "Each colour is the area closest to one centre - warm colours are your new ones. "
                 f"The busiest centre is {busiest}, with {shares[busiest]:.0%} of patients. "
                 "Hover over an area to see which."
             )
+        elif view == "growth":
+            # People too far in 2036 minus today, for today's centres and then with the new ones
+            rise = summarise(data, today_times, cutoff, "2036")["beyond"] - today["beyond"]
+            rise_new = summarise(data, now_times, cutoff, "2036")["beyond"] - now["beyond"]
+            map_note = (
+                "Darker areas will have more people aged 50-84 by 2036, up to "
+                f"{GROWTH_TOP:.0f}% more around Kingsbridge in the South Hams. "
+            )
+            if round(rise, -2) == 0:
+                map_note += f"Even then, almost nobody would be more than {cutoff} minutes from a centre."
+            else:
+                map_note += (
+                    f"If nothing changes, **{round(rise, -2):,.0f} more people** will live more than "
+                    f"{cutoff} minutes from a centre."
+                )
+                if has_new:
+                    map_note += (
+                        f" With your new centres, that rise is **{round(rise_new, -2):,.0f}**."
+                    )
         else:
             map_note = (
                 f"Red areas are more than {cutoff} minutes from the nearest centre."
@@ -607,7 +812,6 @@ with tab_build:
                 cutoff,
                 view,
                 selectable=True,
-                demand=demand,
                 legend=True,
             ),
             key=map_key,
@@ -616,6 +820,12 @@ with tab_build:
             on_select=lambda key=map_key: on_map_click(key),
             selection_mode="points",
         )
+        if view == "growth":
+            st.warning(
+                "The 2036 population is an illustrative projection made for teaching purposes only, "
+                "not an official forecast.",
+                icon=":material/warning:",
+            )
 
     st.divider()
     # The main way on, so it comes straight after the results; the extra panel sits below it
@@ -639,7 +849,7 @@ with tab_build:
         )
 
     st.divider()
-    render_what_if(mode, cutoff, demand, view, len(new_sites))
+    render_what_if(mode, cutoff, view, len(new_sites))
 
 # ---------------------------------------------------------------- tab 2
 with tab_opt:
@@ -781,6 +991,8 @@ with tab_opt:
                 config={"displayModeBar": False},
             )
 
+            render_fast_forward(scores, opt_mode, opt_cutoff, titles)
+
             st.subheader("Why computers?")
             n_cand = len(data.candidates)
             number_boxes(
@@ -864,7 +1076,7 @@ with tab_trade:
         if len(keys) < 2:
             st.warning("Pick at least two questions to weigh them against each other.")
         else:
-            trade_scores = pareto.question_scores(data, len(new_sites), cutoffs, demand)
+            trade_scores = pareto.question_scores(data, len(new_sites), cutoffs)
             ss = pareto.solution_set(data, trade_scores, keys, qs)
             n_front, n_total, beater = pareto.verdict(ss, keys, new_sites)
             st.markdown(

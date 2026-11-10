@@ -32,8 +32,6 @@ EXISTING_SHORT_NAMES = {
 }
 
 MODES = {"car": "By car", "pt": "By public transport"}
-# Demand scenarios; "2036" is an illustrative projection made for teaching, not an ONS forecast
-DEMANDS = {"today": "Today", "2036": "In 10 years (2036, projected)"}
 
 # What each objective asks, in the plain English shown to visitors. All are
 # "lower is better" so a single sort handles every one of them.

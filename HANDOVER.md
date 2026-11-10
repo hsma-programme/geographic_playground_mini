@@ -64,14 +64,14 @@ network, so "smallest gap" rewards helping richer rural areas), and 2036 journey
 lokigi is a runtime dependency (`lokigi>=0.10.0`); see CLAUDE.md for the install-size and import-time cost.
 Visitor copy avoids the words "Pareto" and "dominated".
 
-The sidebar (new centres, travel mode, map view, cutoff, demand) is drawn only on tab 1, using `st.tabs(key="page",
+The sidebar (new centres, travel mode, map view, cutoff, "Looking ahead") is drawn only on tab 1, using `st.tabs(key="page",
 on_change="rerun")` and `tab_build.open`; tab 2 carries a one-line caption of what it is scoring. Every widget
 that can stop being drawn needs `persist_state="page"`, or its value is lost.
 
 Verified in headless Chrome: all three tabs with 3 centres by car; the sidebar present only on tab 1; picks and
 mode kept across tabs; public transport (tab 2 caption and tab 3 cutoffs); the cap of 5 (the sixth tap is undone
 with a toast); radar and lines with 4 and 5 questions. Not verified: the cutoff slider moved away from its
-default (only the default cutoffs were exercised), the 2036 demand, "Most even workload" and the deprived
+default (only the default cutoffs were exercised), "Most even workload" and the deprived
 questions on the final layout, hover and legend taps (static screenshots only), touch, narrow screens, and load
 time on a stand laptop.
 
@@ -94,7 +94,7 @@ The x-axis title is "Minutes to the nearest centre", short enough not to clip at
 Checked by eye in standalone renders (car at 20/30/45/60/70 min, public transport at 60/90/120, with and without
 new centres) and in the app at desktop and 390 px phone width. Public transport is busier because its curve is lumpy.
 
-Verified in headless Chrome: car with no centres and with two, public transport and 2036 demand with two centres,
+Verified in headless Chrome: car with no centres and with two, public transport with two centres,
 no tracebacks. Not verified: hover text, touch, cutoff slider away from its default (car cutoffs above 65 minutes
 omit the red part and cutoff line by design, untested visually). Known wart: public transport is lumpy because the
 underlying times are, and the pile-up at 180 draws as a thin spike at the right edge.
@@ -118,8 +118,8 @@ the map starts slightly lower than the town pills beside it.
 
 Verified in headless Chrome: car `gain`, `deprived` and `nearest` with two centres; public transport `gain`
 with two centres; car journey-time legend placement; no tracebacks. Not verified: public transport `deprived`
-and the empty `gain` screenshots (taken, not looked at), the `gain` legend's new placement, hover text, the 2036
-demand's effect on shares, the what-if sentences for the new views on public transport, cross-checking a share
+and the empty `gain` screenshots (taken, not looked at), the `gain` legend's new placement, hover text,
+the what-if sentences for the new views on public transport, cross-checking a share
 against tab 3's `busiest_car`, touch, narrow screens. Known weak spot: `deprived` colours small urban patches, so
 at full-Devon zoom they read as faint specks. Check it on the stand screen; options are outlining those areas
 or zooming in. The sidebar now has ten map options (five per mode), which is the limit for a walk-up audience.
@@ -202,7 +202,7 @@ default; changing only the view keeps it. The cutoff slider shows only in the "t
 kept while hidden (the headline metric and optimiser still use it).
 
 Following review feedback ("put all the inputs in one place"), the town pills and "Start again" / "Surprise me"
-are also in the sidebar, as its first section ("Your new centres", above "What the map shows" and "Demand"),
+are also in the sidebar, as its first section ("Your new centres", above "What the map shows" and "Looking ahead"),
 so tab 1's right-hand column is only results: metrics and the journey chart. The sidebar is 24rem wide (the
 DES mini's is narrower) and the sidebar pills are slightly compact (`style.css`), so the 14 towns fit 3 to a row
 (5 rows). The cost is height: the "By car" map options start about 830px down (measured in a 1500px-wide
@@ -214,12 +214,42 @@ Note: the sidebar width rule used to target `[aria-expanded="true"]`, which this
 sidebar was Streamlit's default 300px until this change; it now targets `[data-collapsed="false"]`. The DES
 mini's `style.css` has the same dead selector.
 
-A "Demand" sidebar section switches every metric and the optimiser between today's 50-84 population and the
-full playground's 2036 projection (`raw/demand_MF_50_84_projected_2036.csv`, copied from its
-`data/generate_projected_demand.py` output). That projection is synthetic, made for teaching, with extra growth
-around Kingsbridge; the help hover and footer say so. With the default cutoffs it changes the winners only by car
-with 2-3 new centres (Kingsbridge joins the "shortest average journey" winner, and the 2-centre "fewest far away"
-one); with 1 new centre, or by public transport, the winners don't change. The map colours don't depend on demand; only the closest-centre view's hover and caption (each centre's share of patients) do.
+### The 2036 projection ("Looking ahead" and tab 2's fast forward)
+
+The 2036 population is the full playground's projection (`raw/demand_MF_50_84_projected_2036.csv`, copied from
+its `data/generate_projected_demand.py` output): synthetic, made for teaching, with extra growth around
+Kingsbridge; the help hover and footer say so. It used to be a "Demand" radio at the bottom of the sidebar that
+switched tab 1's and tab 3's numbers but not the map, and tab 2 ignored it, so it felt like an afterthought.
+Now **every number on tabs 1 and 3 uses today's population**, and 2036 appears in two deliberate places:
+
+- **Tab 1, "Looking ahead" sidebar section**: one radio option, "Where need grows by 2036" (`view="growth"` in
+  `travel_map`: % growth in people aged 50-84, purple, since red and teal already mean "too far" and
+  "quicker"). It is a third radio group beside car and public transport (`MAP_GROUPS`, `on_map_choice_change`);
+  choosing it keeps the current travel mode and cutoff, which its caption uses: "If nothing changes, 10,600 more
+  people will live more than 45 minutes from a centre" (car; 34,100 over 90 min by public transport), plus "With
+  your new centres, that rise is ..." once centres are chosen (6,300 with Kingsbridge alone). The caption's
+  "around Kingsbridge in the South Hams" is static text; `GROWTH_TOP` (42%) is computed. The what-if panel treats
+  this view as "who is too far". Because the sidebar's car and public transport options are cleared in this view, a "By car / By public transport" switch (`growth_mode`, `on_growth_mode_change`) sits above the metrics, shown only here; it resets the cutoff like the sidebar. Verified in headless Chrome: car to public transport and back, then leaving the view hides it. In this view the metric cards show 2036 figures for the centres on the map, each arrow comparing with 2026 for the same centres (a caption under the switch says so): e.g. 62,789 people over 45 min, +10,644; with Kingsbridge 47,055, +6,316, matching the map caption. "People helped" and "Average time saved" use `delta_kwargs(..., higher_better=True)`. The longest journey always reads "no change" (it ignores population; its help hover says so). Other views keep the usual cards, compared with today's centres. A yellow `st.warning` under the map (this view only) says the 2036 population is an illustrative projection for teaching purposes only. The "Average journey" card has a help hover in every view saying it is weighted by people aged 50-84, plus, in this view, why that makes it change by 2036.
+- **Tab 2, "Will it still be best in 10 years?"** (`render_fast_forward`), between the compare maps and "Why
+  computers?": the do-nothing number, then a "Fast forward to 2036" button. It shows the growth map and two cards
+  (shortest average journey, fewest people over 45 min): the 2026 and 2036 winners, a verdict ("Still the best in
+  2036: a choice that lasts" or "Changes by 2036: Kingsbridge comes in, Okehampton drops out"), and your pick's rank
+  in both years. `st.session_state.fast_forward` stores the centres it was run for, so other centres hide it.
+
+What the data gives (car, 45 min): the 50-84 population grows 14% overall, ~40% in the South Hams, ~3% in Plymouth,
+and faster where people are already far from a centre (20% vs 13%). Winners: with 1 centre nothing changes
+(Barnstaple, Okehampton); with 2, both questions change (Barnstaple + Kingsbridge; Okehampton + Kingsbridge, where
+sticking with 2026's answer leaves 2,170 more people too far); with 3, only the average journey changes (Kingsbridge
+for Newton Abbot). The average-journey margins are 0.02-0.06 min, so the card shows no minutes, only ranks.
+Public transport winners never change, which is one reason tab 2 stays on car. Not added: 2036 questions on tab 3
+(journeys correlate 0.98 with today's, so they add few new trade-offs).
+
+Verified in headless Chrome: tab 1's growth view by car with no centres and with Kingsbridge (10,600 / 6,300), and
+by public transport (34,100, mode and 90-min cutoff kept); tab 2 with Barnstaple ("still the best" on both cards)
+and Okehampton + Barnstaple (both change, 2,170 shown); the section going back to just the button after adding a
+centre and re-running; tab 3 unaffected; no tracebacks. Numbers match a scratch exhaustive run. Not verified: 3
+centres on tab 2, hover text on the growth map, phone width (the cards and map sit in a `reflow_stack_future`
+row, so they should stack like the compare maps), touch.
 
 Tab 1 ends with the "Watch the optimiser" button, in an outlined box right after the map and results (`next_step`
 container; the button is bigger than the other call-to-action buttons, with a teal glow), with a muted line
@@ -239,7 +269,7 @@ faded, and the bar for the visitor's current number of centres is outlined yello
 visitor's own per-centre gains in tap order (they can rise, which muddies the message). Verified in headless
 Chrome for car and public transport in all three views, with the sentence numbers matching a scratch exhaustive
 run. The new layout was checked in headless Chrome at 1500, 1000 and 390 wide, with 0, 1 and 3 centres, and with
-a 115-minute car cutoff (the "nobody is too far" message). Not verified: the 2036 demand and touch. At 390 wide
+a 115-minute car cutoff (the "nobody is too far" message). Not verified: touch. At 390 wide
 the chart's y-axis title looked clipped by a character at the left edge; not yet checked whether that predates the
 move.
 
