@@ -809,18 +809,20 @@ with tab_opt:
                 "the trade-offs."
             )
             st.divider()
-            st.markdown(
-                "**Real decisions weigh several questions at once.** "
-                "See which options come out on top when you do."
-            )
-            st.button(
-                "Weigh up the trade-offs",
-                key="to_trade",
-                on_click=go_to_tab,
-                args=(TAB_LABELS[2],),
-                icon=":material/arrow_forward:",
-                type="primary",
-            )
+            # Styled like tab 1's "next_step" box, so the way on looks the same on both tabs
+            with st.container(key="trade_step"):
+                st.markdown(
+                    "### Real decisions weigh several questions at once\n"
+                    "See which options come out on top when you do."
+                )
+                st.button(
+                    "Weigh up the trade-offs",
+                    key="to_trade",
+                    on_click=go_to_tab,
+                    args=(TAB_LABELS[2],),
+                    icon=":material/arrow_forward:",
+                    type="primary",
+                )
 
 # ---------------------------------------------------------------- tab 3
 with tab_trade:
