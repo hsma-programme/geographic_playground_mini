@@ -513,6 +513,12 @@ def on_map_click(key):
         [s for s in sites if s != site] if site in sites else sites + [site]
     )
     st.session_state.optimiser_ran = False
+    # The sidebar warning is easy to miss from the map, and the extra site doesn't show on it
+    if site not in sites and len(st.session_state.new_sites) > MAX_NEW_SITES:
+        st.toast(
+            f"The budget stretches to {MAX_NEW_SITES} new centres - tap one of yours to swap it out.",
+            icon="☝️",
+        )
 
 
 def on_question_change(row):
