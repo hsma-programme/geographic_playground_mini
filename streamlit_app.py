@@ -1092,11 +1092,12 @@ with tab_trade:
                 )
                 + (
                     f"<div class='pick-made'>...and your pick, {label(data, new_sites)}, "
-                    + ("is the one that can't be ruled out" if n_front == 1 else "is one of the defensible options")
+                    + ("is the clear choice" if n_front == 1 else "is one of the defensible options")
                     + " 🏆</div>"
                     if beater is None
                     else f"<div class='pick-missed'>...but your pick, {label(data, new_sites)}, "
-                    "isn't one of them</div>"
+                    + ("is not the clear choice" if n_front == 1 else "is not one of the defensible options")
+                    + "</div>"
                 )
                 + "</div></div>",
                 unsafe_allow_html=True,
