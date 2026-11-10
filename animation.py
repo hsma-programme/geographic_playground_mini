@@ -67,11 +67,17 @@ def build_payload(data: Data, mode, scores, objective, seed=7) -> dict:
     lat.append(site["Latitude"].tolist())
     lon.append(site["Longitude"].tolist())
     trying.append(f"<b>Done!</b> All {n} options tried")
-    best_text.append(f"<b>Winner:</b> {label(data, combos[winner])} <span class='dim'>{values[winner]:.1f} min average journey</span>")
+    best_text.append(
+        f"<span class='win'>🏆 <b>Winner:</b> {label(data, combos[winner])}</span>"
+        f"<span class='dim'>{values[winner]:.1f} min average journey</span>"
+    )
     new_best.append(None)
+    # Stays up on the final frame, in the "new winner" pill, so the win has a size
+    margin = values.max() - values[winner]
+    final_tag = f"{margin:.1f} min quicker than the worst option" if n > 1 else None
 
     return dict(z=z, lat=lat, lon=lon, trying=trying, best=best_text, new_best=new_best,
-                duration=_frame_duration_ms(n))
+                final_tag=final_tag, duration=_frame_duration_ms(n))
 
 
 PAGE_CSS = """
@@ -81,6 +87,7 @@ body{margin:0;background:transparent;color:#fff;font-family:'Space Grotesk',sans
 #hdr .dim{opacity:.65;font-size:16px;margin-left:8px;}
 #bestrow{display:flex;align-items:center;gap:12px;white-space:nowrap;}
 #best{overflow:hidden;text-overflow:ellipsis;}
+#best .win{font-size:30px;}
 #tag{flex-shrink:0;background:#2e9e4f;color:#fff;font-size:15px;font-weight:600;padding:2px 10px;border-radius:999px;
   opacity:0;transition:opacity .3s;}
 #tag.show{opacity:1;}
@@ -134,7 +141,12 @@ function show(k, from) {
   document.getElementById('fill').style.width = (100 * (k + 1) / P.z.length) + '%';
   var news = null;  // the latest new winner among any frames skipped to get here
   for (var j = from; j <= k; j++) if (P.new_best[j]) news = P.new_best[j];
-  if (news) {
+  if (k === P.z.length - 1 && P.final_tag) {
+    // The winner's margin over the worst option, held until the next run
+    clearTimeout(tagTimer);
+    tag.textContent = P.final_tag;
+    tag.classList.add('show');
+  } else if (news) {
     // Held long enough to read even when frames fly by; a newer winner replaces it
     tag.textContent = news;
     tag.classList.add('show');
@@ -177,8 +189,8 @@ def render_optimiser_animation(data: Data, mode, scores, objective="avg"):
 
     # Drawn with no chosen sites so every candidate keeps its grey dot throughout;
     # the first frame fills in the colours and the yellow marker.
-    fig = travel_map(data, mode, (), cutoff=0, view="time", height=MAP_HEIGHT)
-    fig.data[0].update(showscale=False, hovertemplate="%{z:.0f} min to nearest centre<extra></extra>")
+    fig = travel_map(data, mode, (), cutoff=0, view="time", height=MAP_HEIGHT, show_mode=True)
+    fig.data[0].update(hovertemplate="%{z:.0f} min to nearest centre<extra></extra>")
     fig.data[4].update(mode="markers", text=None)
     fig.update_layout(paper_bgcolor="rgba(0,0,0,0)")
     map_html = fig.to_html(

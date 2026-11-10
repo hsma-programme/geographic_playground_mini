@@ -385,6 +385,19 @@ def on_fast_forward(sites):
     st.session_state.fast_forward = sites
 
 
+def card_title(text, mode):
+    """A question's name as a tinted band across the top of its card, with the travel
+    mode on a softer second line ("by car").
+
+    Call first inside st.container(border=True, key="title_card_..."), which style.css
+    needs to stretch the band to the card's edges.
+    """
+    st.markdown(
+        f"<div class='card-title'>{text}<br><span class='by-mode'>{pareto.MODE_NAME[mode]}</span></div>",
+        unsafe_allow_html=True,
+    )
+
+
 def render_fast_forward(scores, mode, cutoff, titles):
     """Tab 2: does the winner, and your pick's rank, hold up with the 2036 population?"""
     n_new = len(new_sites)
@@ -426,8 +439,8 @@ def render_fast_forward(scores, mode, cutoff, titles):
         for key in FUTURE_QUESTIONS:
             win_now = scores.loc[scores[key].idxmin(), "sites"]
             win_later = later.loc[later[key].idxmin(), "sites"]
-            with st.container(border=True):
-                st.caption(titles[key])
+            with st.container(border=True, key=f"title_card_ff_{key}"):
+                card_title(titles[key], mode)
                 st.markdown(
                     f"Best in 2026: **{label(data, win_now)}**  \n"
                     f"Best in 2036: **{label(data, win_later)}**"
@@ -928,7 +941,6 @@ with tab_opt:
                 "The animation scored every option on *average journey time*. "
                 "Ask a different question and a different place can win."
             )
-            st.caption(f"All the questions and maps below use journey times {pareto.MODE_NAME[opt_mode]}.")
             keys = list(OBJECTIVES)
             # The cutoff only matters to the 'far away' question, so it is named only there
             titles = {k: OBJECTIVES[k][0] for k in keys} | {
@@ -944,8 +956,9 @@ with tab_opt:
                 yours = rank_of(scores, new_sites, key)
                 # Ties are exact and common on the longest journey, so say so rather than pick one
                 winner_ties = n_tied(scores, winner["sites"], key)
-                with col.container(border=True):
-                    st.caption(title)
+                with col.container(border=True, key=f"title_card_q_{key}"):
+                    # Mode repeated on each card: the intro above is easy to miss
+                    card_title(title, opt_mode)
                     st.markdown(
                         f"<div class='champion-name'>{label(data, winner['sites'])}</div>",
                         unsafe_allow_html=True,
@@ -984,6 +997,8 @@ with tab_opt:
             win_score = scores[pick_key].min()
             gain = round(your_score - win_score, decimals)
             your_ties = n_tied(scores, new_sites, pick_key)
+            # Shown as a pill like tab 1's metric changes: green only when the winner beats you
+            vs_colour, vs_icon = "gray", None
             if winner_sites == new_sites:
                 vs_yours = "This is your pick 🏆"
             elif your_score == win_score:
@@ -994,9 +1009,12 @@ with tab_opt:
                 vs_yours = "The same as your pick"
             else:
                 vs_yours = gain_fmt.format(gain).capitalize() + " than your pick"
+                vs_colour, vs_icon = "green", ":material/arrow_downward:"
             # Score in bold, then one smaller line on each side, so the two maps stay level
             left, right = st.container(key="reflow_stack_compare_maps").columns(2)
-            left.subheader("Your pick")
+            # Markdown headings on both sides (same spacing), so the right one can put the
+            # travel mode on a softer second line
+            left.markdown("### Your pick")
             left.markdown(f"**{score_fmt.format(your_score, cutoff=opt_cutoff)}**")
             left.caption(
                 f"#{rank_of(scores, new_sites, pick_key)} of {n_total:,} on this question"
@@ -1012,11 +1030,13 @@ with tab_opt:
             )
             title = titles[pick_key]
             # "Best for the most deprived areas" already starts with "Best for"
-            right.subheader(
-                title if title.startswith("Best for") else f"Best for: {title.lower()}"
+            heading = title if title.startswith("Best for") else f"Best for: {title.lower()}"
+            right.markdown(
+                f"### {heading}<br><span class='by-mode'>{pareto.MODE_NAME[opt_mode]}</span>",
+                unsafe_allow_html=True,
             )
             right.markdown(f"**{score_fmt.format(win_score, cutoff=opt_cutoff)}**")
-            right.caption(vs_yours)
+            right.badge(vs_yours, color=vs_colour, icon=vs_icon)
             right.plotly_chart(
                 compare_map(
                     data,
@@ -1061,19 +1081,39 @@ with tab_opt:
                 "the trade-offs."
             )
             st.divider()
-            # Styled like tab 1's "next_step" box, so the way on looks the same on both tabs
+            # Styled like tab 1's "next_step" box, so the way on looks the same on both tabs.
+            # Two ways on: tab 3, or back to tab 1 to rerun with a different number of centres
             with st.container(key="trade_step"):
-                st.markdown(
+                onward, again = st.container(key="reflow_stack_trade_step").columns(
+                    2, gap="large"
+                )
+                onward.markdown(
                     "### Real decisions weigh several questions at once\n"
                     "See which options come out on top when you do."
                 )
-                st.button(
+                onward.button(
                     "Weigh up the trade-offs",
                     key="to_trade",
                     on_click=go_to_tab,
                     args=(TAB_LABELS[2],),
                     icon=":material/arrow_forward:",
                     type="primary",
+                )
+                others = " or ".join(
+                    str(k) for k in range(1, MAX_NEW_SITES + 1) if k != n_new
+                )
+                again.markdown(
+                    "### Or try a different number of centres\n"
+                    f"This time the computer placed **{n_new} new "
+                    f"centre{'s' if n_new > 1 else ''}**. Go back and try **{others}** "
+                    "to see if the best places change."
+                )
+                again.button(
+                    "Change the number of centres",
+                    key="back_to_build",
+                    on_click=go_to_tab,
+                    args=(TAB_LABELS[0],),
+                    icon=":material/arrow_back:",
                 )
 
 # ---------------------------------------------------------------- tab 3

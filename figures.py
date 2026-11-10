@@ -5,7 +5,7 @@ import os
 import numpy as np
 import plotly.graph_objects as go
 
-from core import DEPRIVED_MAX_DECILE, Data, nearest_site, nearest_time
+from core import DEPRIVED_MAX_DECILE, MODE_NAME, Data, nearest_site, nearest_time
 
 # Basemap tiles need internet. Set MINI_OFFLINE=1 on a stand laptop with no wifi
 # to fall back to a plain background (the area outlines still read fine).
@@ -78,7 +78,7 @@ def _site_traces(data: Data, new_sites, selectable=False):
     ]
 
 
-def _add_cutoff_legend(fig: go.Figure, cutoff):
+def _add_cutoff_legend(fig: go.Figure, cutoff, by=""):
     """Key for the 'too far' map's two colours, in its bottom-left corner.
 
     Choropleth fills can't have legend entries, so these are empty marker traces that
@@ -88,7 +88,7 @@ def _add_cutoff_legend(fig: go.Figure, cutoff):
     for colour, text in [(NEAR, "Less"), (FAR, "More")]:
         fig.add_trace(go.Scattermap(
             lat=[None], lon=[None], mode="markers", marker=dict(size=14, color=colour, opacity=0.75),
-            name=f"{text} than {cutoff} minutes from nearest centre", hoverinfo="skip",
+            name=f"{text} than {cutoff} minutes{by} from nearest centre", hoverinfo="skip",
         ))
     fig.update_layout(
         showlegend=True,
@@ -100,7 +100,8 @@ def _add_cutoff_legend(fig: go.Figure, cutoff):
 
 
 def travel_map(
-    data: Data, mode, new_sites, cutoff, view, height=640, selectable=False, demand="today", legend=False
+    data: Data, mode, new_sites, cutoff, view, height=640, selectable=False, demand="today", legend=False,
+    show_mode=False,
 ) -> go.Figure:
     """The interactive map: binary 'beyond the cutoff' view, a time gradient, that
     gradient for the most deprived areas only, the minutes saved by new centres,
@@ -109,8 +110,11 @@ def travel_map(
 
     selectable=True sizes and labels the candidate sites for tapping.
     legend=True adds a key to the 'beyond the cutoff' view (the other views have colour bars).
+    show_mode=True names the travel mode in the journey-time keys ("minutes by car"), for
+    places where no sidebar shows which mode is in use.
     """
     times = nearest_time(data, mode, new_sites)
+    by = f" {MODE_NAME[mode]}" if show_mode else ""
     if view == "nearest":
         sites = list(data.existing) + list(new_sites)
         colours = [EXISTING_COLOURS[i % len(EXISTING_COLOURS)] for i in range(len(data.existing))]
@@ -171,7 +175,7 @@ def travel_map(
         choropleth = go.Choroplethmap(
             geojson=data.geojson, locations=idx, z=saved[idx],
             zmin=0, zmax=GAIN_MAX[mode], colorscale=GAIN_COLORSCALE,
-            colorbar=_colorbar("minutes saved"),
+            colorbar=_colorbar("minutes saved" + by.replace(" ", "<br>", 1)),
             marker=dict(opacity=0.8, line_width=0),
             selected=dict(marker=dict(opacity=0.8)),
             unselected=dict(marker=dict(opacity=0.8)),
@@ -184,7 +188,7 @@ def travel_map(
         choropleth = go.Choroplethmap(
             geojson=data.geojson, locations=idx, z=times[idx],
             zmin=0, zmax=TIME_MAX[mode], colorscale=TIME_COLORSCALE,
-            colorbar=_colorbar("minutes"),
+            colorbar=_colorbar("minutes" + by.replace(" ", "<br>", 1)),
             marker=dict(opacity=0.75, line_width=0),
             selected=dict(marker=dict(opacity=0.75)),
             unselected=dict(marker=dict(opacity=0.75)),
@@ -202,7 +206,7 @@ def travel_map(
         modebar=dict(orientation="v", bgcolor="rgba(255,255,255,0.85)", color="#333", activecolor="#000"),
     )
     if legend and view == "cutoff":
-        _add_cutoff_legend(fig, cutoff)
+        _add_cutoff_legend(fig, cutoff, by)
     return fig
 
 
@@ -278,13 +282,15 @@ def _outline(data: Data, areas, width=4, colour="#000") -> go.Scattermap:
 def compare_map(
     data: Data, mode, new_sites, view="time", cutoff=0, outline_worst=False, height=500
 ) -> go.Figure:
-    """Compact map, without a colour bar, used to compare 'your pick' with the optimiser's pick
-    in whichever tab 1 view suits the question being compared.
+    """Compact map, with tab 1's key, used to compare 'your pick' with the optimiser's pick
+    in whichever tab 1 view suits the question being compared. Tab 2 has no sidebar, so
+    the key names the travel mode.
 
     outline_worst=True rings the area(s) with the longest journey to the nearest centre.
     """
-    fig = travel_map(data, mode, new_sites, cutoff=cutoff, view=view, height=height)
-    fig.update_traces(showscale=False, selector=dict(type="choroplethmap"))
+    fig = travel_map(
+        data, mode, new_sites, cutoff=cutoff, view=view, height=height, legend=True, show_mode=True
+    )
     if outline_worst:
         # Added last so the trace numbers other code relies on stay the same
         times = nearest_time(data, mode, new_sites)

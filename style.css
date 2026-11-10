@@ -184,7 +184,8 @@ section[data-testid="stSidebar"][data-collapsed="false"] {
 .st-key-go_to_optimiser {
 	margin: 0.5rem 0 0.25rem;
 }
-.st-key-to_trade {
+.st-key-to_trade,
+.st-key-back_to_build {
 	margin: 0.5rem 0 0;
 }
 .st-key-go_to_optimiser button:not(:disabled),
@@ -196,6 +197,26 @@ section[data-testid="stSidebar"][data-collapsed="false"] {
 .st-key-go_to_optimiser button p,
 .st-key-to_trade button p {
 	font-size: 1.6rem !important;
+}
+/* Tab 2's other way on, "Change the number of centres": the same size, but outlined,
+	so going forward to tab 3 stays the main path */
+.st-key-back_to_build button {
+	min-height: 4.5rem;
+	padding: 0 2.5rem;
+	background-color: transparent;
+	border: 2px solid rgba(31, 177, 185, 0.7);
+	color: #ffffff;
+}
+.st-key-back_to_build button:hover,
+.st-key-back_to_build button:focus:not(:active) {
+	background-color: rgba(31, 177, 185, 0.12);
+	border-color: #1fb1b9;
+	color: #ffffff;
+}
+.st-key-back_to_build button p {
+	font-family: "HSMA Display", sans-serif !important;
+	font-size: 1.6rem !important;
+	letter-spacing: 0.05em;
 }
 
 .st-key-fast_forward_button button:hover,
@@ -438,6 +459,57 @@ section[data-testid="stSidebar"] [data-testid="stPills"] button p { font-size: 0
 .big-number-label { font-size: 0.85rem; opacity: 0.75; }
 .champion-name { font-size: 1.25rem; font-weight: 600; }
 
+/* Tab 2's question cards (card_title in streamlit_app.py): the question as a tinted band
+	across the top of the card, divided from the rest. The negative margins undo the
+	card's own padding (17px in Streamlit 1.66.1), so the band reaches its edges. */
+[class*="st-key-title_card_"] { --card-pad: 17px; }
+[class*="st-key-title_card_"] > [data-testid="stElementContainer"]:first-child {
+	width: calc(100% + 2 * var(--card-pad)) !important;
+	max-width: none;
+	margin: calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)) 0;
+	/* Restores the gap below the divider that the markdown wrapper's pull-up removes */
+	padding-bottom: 0.8rem;
+}
+/* Padding on the title itself: Streamlit's markdown wrapper pulls its own bottom edge up */
+.card-title {
+	padding: 0.6rem var(--card-pad);
+	background-color: rgba(31, 177, 185, 0.18);
+	border-bottom: 1px solid rgba(250, 250, 250, 0.2);
+	border-radius: 8px 8px 0 0;
+	font-size: 1rem; font-weight: 600; line-height: 1.35;
+}
+/* The travel mode ("by car") on its own line, under a card title or tab 2's "Best for:"
+	heading: softer than the title, and a fixed second line keeps the bands level */
+.by-mode { font-style: italic; font-weight: 400; opacity: 0.85; }
+h3 .by-mode { font-size: 0.75em; }
+/* Tab 2's compare maps, while side by side (they stack below 1300px): "Best for: ..." has
+	"by car" on a second line, so "Your pick" is two lines high too and the maps start level */
+@media (min-width: 1300px) {
+	.st-key-reflow_stack_compare_maps h3 { min-height: 2lh; box-sizing: content-box; }
+}
+
+/* Tab 2's last box, split in two: "Weigh up the trade-offs" on the left and "Change the
+	number of centres" on the right, divided by a line (beside it, or above it when stacked) */
+.st-key-reflow_stack_trade_step [data-testid="stColumn"] + [data-testid="stColumn"] {
+	border-left: 1px solid rgba(31, 177, 185, 0.35);
+	padding-left: 2rem;
+}
+/* Both halves full height, with each button pinned to the bottom, so the two buttons line
+	up when one heading wraps onto more lines than the other */
+.st-key-reflow_stack_trade_step [data-testid="stHorizontalBlock"] { align-items: stretch; }
+.st-key-reflow_stack_trade_step [data-testid="stColumn"] { display: flex; flex-direction: column; }
+.st-key-reflow_stack_trade_step [data-testid="stColumn"] > [data-testid="stVerticalBlock"] { flex: 1 1 auto; }
+.st-key-reflow_stack_trade_step .st-key-to_trade,
+.st-key-reflow_stack_trade_step .st-key-back_to_build { margin-top: auto; }
+@media (max-width: 1299.98px) {
+	.st-key-reflow_stack_trade_step [data-testid="stColumn"] + [data-testid="stColumn"] {
+		border-left: none;
+		padding-left: 0;
+		border-top: 1px solid rgba(31, 177, 185, 0.35);
+		padding-top: 1.25rem;
+	}
+}
+
 /* Let the town pills wrap onto several rows instead of scrolling sideways */
 [data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; }
 
@@ -518,11 +590,13 @@ section[data-testid="stSidebar"] [data-testid="stPills"] button p { font-size: 0
 	.st-key-fast_forward_button button p,
 	.st-key-run_optimiser button p,
 	.st-key-go_to_optimiser button p,
-	.st-key-to_trade button p {
+	.st-key-to_trade button p,
+	.st-key-back_to_build button p {
 		font-size: 1rem !important;
 	}
 	.st-key-go_to_optimiser button:not(:disabled),
-	.st-key-to_trade button {
+	.st-key-to_trade button,
+	.st-key-back_to_build button {
 		min-height: 3.5rem;
 		padding: 0 1.5rem;
 	}

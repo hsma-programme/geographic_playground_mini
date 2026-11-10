@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from lokigi.multiobjective import Metric
 from lokigi.site_solutions import SiteSolutionSet
 
-from core import Data, label, score_all_combinations
+from core import MODE_NAME, Data, label, score_all_combinations
 
 YOUR_PICK = "Your pick"
 YOUR_COLOUR = "#ffe600"
@@ -67,7 +67,6 @@ class Question:
 
 
 ROWS = {"car": "By car", "pt": "By public transport", "service": "How the service runs"}
-MODE_NAME = {"car": "by car", "pt": "by public transport"}
 
 
 def questions(cutoffs) -> dict:

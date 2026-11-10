@@ -32,6 +32,8 @@ EXISTING_SHORT_NAMES = {
 }
 
 MODES = {"car": "By car", "pt": "By public transport"}
+# Mid-sentence form, e.g. "average journey time by car"
+MODE_NAME = {"car": "by car", "pt": "by public transport"}
 
 # What each objective asks, in the plain English shown to visitors. All are
 # "lower is better" so a single sort handles every one of them.
