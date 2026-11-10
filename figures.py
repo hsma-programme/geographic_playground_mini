@@ -360,7 +360,7 @@ def _label_journey_chart(fig, mids, now, today, weights, now_times, cutoff, top,
     # Same split as the headline metric (summarise: over means strictly more than the cutoff)
     within, over = weights[now_times <= cutoff].sum(), weights[now_times > cutoff].sum()
 
-    def inside(text, mask, lo, hi):
+    def inside(text, mask, lo, hi, yshift=0):
         """White label in the filled area, near its middle and below the line."""
         xs, ys = mids[mask], now[mask]
         x = float((xs * ys).sum() / ys.sum()) if ys.sum() else (lo + hi) / 2
@@ -369,7 +369,7 @@ def _label_journey_chart(fig, mids, now, today, weights, now_times, cutoff, top,
         floor = under.min() if under.size else 0
         fig.add_annotation(
             text=text, x=x, y=max(0.13 * peak, min(0.45 * floor, floor - 0.15 * peak)),
-            font=dict(size=14, color="#ffffff"), showarrow=False,
+            font=dict(size=14, color="#ffffff"), showarrow=False, yshift=yshift,
         )
 
     blue_end = min(cutoff, top)
@@ -379,18 +379,20 @@ def _label_journey_chart(fig, mids, now, today, weights, now_times, cutoff, top,
 
     if cutoff < top:
         red = mids > cutoff
-        text = f"<b>Over {cutoff:g} min</b><br>{over:,.0f} people"
+        text = f"<b>Over {cutoff:g} min</b><br>{over:,.0f} people<br>({over / (within + over):.1%})"
         if top - cutoff >= 0.4 * top and now[red].max() > 0.3 * peak:
             # A big red area: label it inside, like the blue one
-            inside(text, red, cutoff, top)
+            # Up half a line, so the extra percentage line doesn't push it onto the axis
+            inside(text, red, cutoff, top, yshift=9)
         else:
             # A thin red tail: label it in the space above, with an arrow into the red.
             # Right of the cutoff line if there is room, otherwise left of it.
             i = int(np.flatnonzero(red)[np.argmax(now[red])])
             fig.add_annotation(
                 text=text, x=mids[i], y=now[i] * 0.5,
-                ax=top if cutoff <= NEAR_EDGE * top else cutoff - 0.02 * top, ay=peak,
-                axref="x", ayref="y", xanchor="right", font=dict(size=14, color=FAR),
+                # Top-anchored just under the "N min limit" label, so the three lines hang below it
+                ax=top if cutoff <= NEAR_EDGE * top else cutoff - 0.02 * top, ay=peak * 1.03,
+                axref="x", ayref="y", xanchor="right", yanchor="top", font=dict(size=14, color=FAR),
                 bgcolor="#1b1a1a",  # on narrow screens it can cross the cutoff line
                 showarrow=True, arrowhead=0, arrowwidth=1.5, arrowcolor=FAR, standoff=2,
             )
