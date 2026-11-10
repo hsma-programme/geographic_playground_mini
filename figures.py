@@ -5,7 +5,7 @@ import os
 import numpy as np
 import plotly.graph_objects as go
 
-from core import DEPRIVED_MAX_DECILE, Data, nearest_site, nearest_time
+from core import DEPRIVED_MAX_DECILE, MODE_NAME, Data, nearest_site, nearest_time
 
 # Basemap tiles need internet. Set MINI_OFFLINE=1 on a stand laptop with no wifi
 # to fall back to a plain background (the area outlines still read fine).
@@ -25,6 +25,10 @@ GAIN_MAX = {"car": 45, "pt": 120}
 # area a new centre takes over stands out (no red, which means "too far" elsewhere)
 EXISTING_COLOURS = ["#4e79a7", "#59a14f", "#76b7b2", "#b07aa1"]
 NEW_COLOURS = ["#f28e2b", "#edc948", "#ff9da7"]
+# 'Where need grows' view: purple, since red and teal already mean "too far" and "quicker".
+# Tops out just above the biggest growth in any area (43%)
+GROWTH_COLORSCALE = [[0, "#f3eff8"], [1, "#4a1486"]]
+GROWTH_MAX = 45
 
 
 def _colorbar(title):
@@ -74,7 +78,7 @@ def _site_traces(data: Data, new_sites, selectable=False):
     ]
 
 
-def _add_cutoff_legend(fig: go.Figure, cutoff):
+def _add_cutoff_legend(fig: go.Figure, cutoff, by=""):
     """Key for the 'too far' map's two colours, in its bottom-left corner.
 
     Choropleth fills can't have legend entries, so these are empty marker traces that
@@ -84,7 +88,7 @@ def _add_cutoff_legend(fig: go.Figure, cutoff):
     for colour, text in [(NEAR, "Less"), (FAR, "More")]:
         fig.add_trace(go.Scattermap(
             lat=[None], lon=[None], mode="markers", marker=dict(size=14, color=colour, opacity=0.75),
-            name=f"{text} than {cutoff} minutes from nearest centre", hoverinfo="skip",
+            name=f"{text} than {cutoff} minutes{by} from nearest centre", hoverinfo="skip",
         ))
     fig.update_layout(
         showlegend=True,
@@ -96,16 +100,21 @@ def _add_cutoff_legend(fig: go.Figure, cutoff):
 
 
 def travel_map(
-    data: Data, mode, new_sites, cutoff, view, height=640, selectable=False, demand="today", legend=False
+    data: Data, mode, new_sites, cutoff, view, height=640, selectable=False, demand="today", legend=False,
+    show_mode=False,
 ) -> go.Figure:
     """The interactive map: binary 'beyond the cutoff' view, a time gradient, that
-    gradient for the most deprived areas only, the minutes saved by new centres, or
-    each area coloured by its closest centre (hover shows each centre's share of patients).
+    gradient for the most deprived areas only, the minutes saved by new centres,
+    each area coloured by its closest centre (hover shows each centre's share of patients),
+    or how much each area's population aged 50-84 grows by 2036.
 
     selectable=True sizes and labels the candidate sites for tapping.
     legend=True adds a key to the 'beyond the cutoff' view (the other views have colour bars).
+    show_mode=True names the travel mode in the journey-time keys ("minutes by car"), for
+    places where no sidebar shows which mode is in use.
     """
     times = nearest_time(data, mode, new_sites)
+    by = f" {MODE_NAME[mode]}" if show_mode else ""
     if view == "nearest":
         sites = list(data.existing) + list(new_sites)
         colours = [EXISTING_COLOURS[i % len(EXISTING_COLOURS)] for i in range(len(data.existing))]
@@ -142,6 +151,23 @@ def travel_map(
             customdata=times.round(0),
             hovertemplate="%{customdata:.0f} minutes to nearest centre<extra></extra>",
         )
+    elif view == "growth":
+        # How much the 50-84 population grows by 2036; the same whatever the mode or centres
+        now, later = data.demand["today"], data.demand["2036"]
+        growth = 100 * (later / now - 1)
+        choropleth = go.Choroplethmap(
+            geojson=data.geojson, locations=np.arange(len(growth)), z=growth,
+            zmin=0, zmax=GROWTH_MAX, colorscale=GROWTH_COLORSCALE,
+            colorbar=_colorbar("% more people<br>aged 50-84<br>by 2036"),
+            marker=dict(opacity=0.8, line_width=0),
+            selected=dict(marker=dict(opacity=0.8)),
+            unselected=dict(marker=dict(opacity=0.8)),
+            customdata=np.column_stack([now.round(0), later.round(0)]),
+            hovertemplate=(
+                "%{customdata[0]:,.0f} people aged 50-84 now, %{customdata[1]:,.0f} in 2036"
+                " (+%{z:.0f}%)<extra></extra>"
+            ),
+        )
     elif view == "gain":
         # Only areas with a quicker nearest centre are coloured; the rest show the basemap
         saved = nearest_time(data, mode) - times
@@ -149,7 +175,7 @@ def travel_map(
         choropleth = go.Choroplethmap(
             geojson=data.geojson, locations=idx, z=saved[idx],
             zmin=0, zmax=GAIN_MAX[mode], colorscale=GAIN_COLORSCALE,
-            colorbar=_colorbar("minutes saved"),
+            colorbar=_colorbar("minutes saved" + by.replace(" ", "<br>", 1)),
             marker=dict(opacity=0.8, line_width=0),
             selected=dict(marker=dict(opacity=0.8)),
             unselected=dict(marker=dict(opacity=0.8)),
@@ -162,7 +188,7 @@ def travel_map(
         choropleth = go.Choroplethmap(
             geojson=data.geojson, locations=idx, z=times[idx],
             zmin=0, zmax=TIME_MAX[mode], colorscale=TIME_COLORSCALE,
-            colorbar=_colorbar("minutes"),
+            colorbar=_colorbar("minutes" + by.replace(" ", "<br>", 1)),
             marker=dict(opacity=0.75, line_width=0),
             selected=dict(marker=dict(opacity=0.75)),
             unselected=dict(marker=dict(opacity=0.75)),
@@ -180,7 +206,7 @@ def travel_map(
         modebar=dict(orientation="v", bgcolor="rgba(255,255,255,0.85)", color="#333", activecolor="#000"),
     )
     if legend and view == "cutoff":
-        _add_cutoff_legend(fig, cutoff)
+        _add_cutoff_legend(fig, cutoff, by)
     return fig
 
 
@@ -192,11 +218,11 @@ MAP_ZOOM_CONFIG = {
 }
 
 
-def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280) -> go.Figure:
+def diminishing_returns_chart(gains, budget, y_title, fmt, height=280) -> go.Figure:
     """Bars of what each extra centre adds (best possible choice each time).
 
-    Bars within the budget are solid, the rest faded; the bar for the number of
-    centres the visitor has chosen so far is outlined in yellow.
+    Bars within the budget are solid; the rest are faded, on a shaded background
+    behind a dashed line, with "Within budget" / "Over budget" labels above.
     """
     n = len(gains)
     fig = go.Figure(
@@ -209,20 +235,30 @@ def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280)
             cliponaxis=False,
             marker=dict(
                 color=["#1fb1b9" if i < budget else "rgba(31,177,185,0.35)" for i in range(n)],
-                line=dict(
-                    color=[NEW_SITE if i == n_chosen - 1 else "rgba(0,0,0,0)" for i in range(n)],
-                    width=4,
-                ),
             ),
             hoverinfo="skip",
         )
     )
+    if budget < n:
+        # The "1".."n" labels look numeric, so plotly makes this a linear axis with bar k
+        # at x = k; the gap after the last bar in budget is at budget + 0.5
+        edge = budget + 0.5
+        fig.add_vrect(
+            x0=edge, x1=n + 0.5, fillcolor="rgba(255,255,255,0.07)", line_width=0, layer="below"
+        )
+        fig.add_vline(x=edge, line=dict(color="rgba(255,255,255,0.6)", width=2, dash="dash"))
+        for x, text in [((0.5 + edge) / 2, "Within budget"), ((edge + n + 0.5) / 2, "Over budget")]:
+            fig.add_annotation(
+                x=x, y=1, xref="x", yref="paper", yanchor="bottom", yshift=14,
+                text=f"<b>{text}</b>", showarrow=False, font=dict(size=14),
+            )
     fig.update_layout(
-        height=height, margin=dict(l=0, r=0, t=24, b=0), showlegend=False,
+        height=height, margin=dict(l=0, r=0, t=48, b=0), showlegend=False,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         xaxis=dict(
-            title="Extra centre (faded = over budget)", tickfont=dict(size=14), fixedrange=True,
+            title="Number of new centres", tickfont=dict(size=14), fixedrange=True,
             tickmode="array", tickvals=[f"{i}" for i in range(1, n + 1)],
+            range=[0.5, n + 0.5],
         ),
         yaxis=dict(title=y_title, tickfont=dict(size=12), fixedrange=True, rangemode="tozero"),
         bargap=0.25,
@@ -246,13 +282,15 @@ def _outline(data: Data, areas, width=4, colour="#000") -> go.Scattermap:
 def compare_map(
     data: Data, mode, new_sites, view="time", cutoff=0, outline_worst=False, height=500
 ) -> go.Figure:
-    """Compact map, without a colour bar, used to compare 'your pick' with the optimiser's pick
-    in whichever tab 1 view suits the question being compared.
+    """Compact map, with tab 1's key, used to compare 'your pick' with the optimiser's pick
+    in whichever tab 1 view suits the question being compared. Tab 2 has no sidebar, so
+    the key names the travel mode.
 
     outline_worst=True rings the area(s) with the longest journey to the nearest centre.
     """
-    fig = travel_map(data, mode, new_sites, cutoff=cutoff, view=view, height=height)
-    fig.update_traces(showscale=False, selector=dict(type="choroplethmap"))
+    fig = travel_map(
+        data, mode, new_sites, cutoff=cutoff, view=view, height=height, legend=True, show_mode=True
+    )
     if outline_worst:
         # Added last so the trace numbers other code relies on stay the same
         times = nearest_time(data, mode, new_sites)
@@ -264,6 +302,10 @@ def compare_map(
 HIST_BIN = 5
 HIST_MAX = {"car": 65, "pt": 180}  # public transport is capped at 180 (unreachable areas)
 GREY = "#b8b8b8"
+# Journey-chart labels, as shares of the x-axis: half a two-line label's width, and where the
+# right edge gets too close for a label to sit right of the cutoff line
+LABEL_HALF_WIDTH = 0.12
+NEAR_EDGE = 0.75
 
 
 def _people_by_time(times, weights, mode):
@@ -315,9 +357,13 @@ def journey_chart(mode, today_times, now_times, weights, cutoff, show_today, hei
         fig.add_trace(area(mids > cutoff, FAR, cutoff, at_cut, extra_at_start=True))
         fig.add_vline(
             x=cutoff, line=dict(color="#ffffff", width=1.5, dash="dash"),
-            annotation_text=f"{cutoff:g} min", annotation_position="top right",
+            annotation_text=f"{cutoff:g} min limit",
+            # Near the right edge the label would be cut off, so it goes on the left of the line
+            annotation_position="top left" if cutoff > NEAR_EDGE * top else "top right",
             annotation_font=dict(size=14),
         )
+    peak = max(now.max(), today.max() if show_today else 0)
+    _label_journey_chart(fig, mids, now, today, weights, now_times, cutoff, top, peak, show_today)
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -326,7 +372,79 @@ def journey_chart(mode, today_times, now_times, weights, cutoff, show_today, hei
         margin=dict(l=10, r=10, t=10, b=40), height=height,
     )
     fig.update_xaxes(
-        range=[0, top], title_text="Journey time to the nearest centre (minutes)", fixedrange=True,
+        range=[0, top], title_text="Minutes to the nearest centre", fixedrange=True,
     )
-    fig.update_yaxes(rangemode="tozero", showticklabels=False, showgrid=False, fixedrange=True)
+    # Headroom above the peak for the labels
+    fig.update_yaxes(range=[0, peak * 1.3], showticklabels=False, showgrid=False, fixedrange=True)
     return fig
+
+
+def _label_journey_chart(fig, mids, now, today, weights, now_times, cutoff, top, peak, show_today):
+    """Name the blue and red areas and the grey line on the chart itself, for walk-up visitors.
+
+    Placement is by simple rules (checked by eye for car and public transport at several
+    cutoffs), so labels sit in clear space rather than needing a legend.
+    """
+    half = LABEL_HALF_WIDTH * top
+    fig.add_annotation(
+        text="▲ more people", x=0, y=1, xref="paper", yref="paper", xanchor="left", yanchor="top",
+        font=dict(size=13, color=GREY), showarrow=False,
+    )
+    # Same split as the headline metric (summarise: over means strictly more than the cutoff)
+    within, over = weights[now_times <= cutoff].sum(), weights[now_times > cutoff].sum()
+
+    def inside(text, mask, lo, hi, yshift=0):
+        """White label in the filled area, near its middle and below the line."""
+        xs, ys = mids[mask], now[mask]
+        x = float((xs * ys).sum() / ys.sum()) if ys.sum() else (lo + hi) / 2
+        x = min(max(x, lo + half), hi - half)
+        under = ys[(xs >= x - half) & (xs <= x + half)]
+        floor = under.min() if under.size else 0
+        fig.add_annotation(
+            text=text, x=x, y=max(0.13 * peak, min(0.45 * floor, floor - 0.15 * peak)),
+            font=dict(size=14, color="#ffffff"), showarrow=False, yshift=yshift,
+        )
+
+    blue_end = min(cutoff, top)
+    if blue_end >= 2 * half:
+        heading = f"Within {cutoff:g} min" if cutoff < top else f"Everyone within {cutoff:g} min"
+        inside(f"<b>{heading}</b><br>{within:,.0f} people", mids < cutoff, 0, blue_end)
+
+    if cutoff < top:
+        red = mids > cutoff
+        text = f"<b>Over {cutoff:g} min</b><br>{over:,.0f} people<br>({over / (within + over):.1%})"
+        if top - cutoff >= 0.4 * top and now[red].max() > 0.3 * peak:
+            # A big red area: label it inside, like the blue one
+            # Up half a line, so the extra percentage line doesn't push it onto the axis
+            inside(text, red, cutoff, top, yshift=9)
+        else:
+            # A thin red tail: label it in the space above, with an arrow into the red.
+            # Right of the cutoff line if there is room, otherwise left of it.
+            i = int(np.flatnonzero(red)[np.argmax(now[red])])
+            fig.add_annotation(
+                text=text, x=mids[i], y=now[i] * 0.5,
+                # Top-anchored just under the "N min limit" label, so the three lines hang below it
+                ax=top if cutoff <= NEAR_EDGE * top else cutoff - 0.02 * top, ay=peak * 1.03,
+                axref="x", ayref="y", xanchor="right", yanchor="top", font=dict(size=14, color=FAR),
+                bgcolor="#1b1a1a",  # on narrow screens it can cross the cutoff line
+                showarrow=True, arrowhead=0, arrowwidth=1.5, arrowcolor=FAR, standoff=2,
+            )
+
+    if show_today:
+        # Where the grey line stands clearest above the fill, on the blue side if possible
+        # (the red side is where the red label goes)
+        gap = today - now
+        side = mids < cutoff - HIST_BIN
+        if side.any() and gap[side].max() > 0.03 * peak:
+            i = int(np.flatnonzero(side)[np.argmax(gap[side])])
+        elif gap.max() > 0.03 * peak:
+            i = int(np.argmax(gap))
+        else:
+            i = int(np.argmax(today))
+        at = mids[i] / top
+        fig.add_annotation(
+            text="Grey line =<br>today's centres", x=mids[i], y=today[i], yshift=4, yanchor="bottom",
+            xanchor="right" if at > 0.85 else "left" if at < 0.15 else "center",
+            font=dict(size=13, color=GREY), showarrow=False,
+            bgcolor="#1b1a1a",  # app background, so the label reads over the lines
+        )

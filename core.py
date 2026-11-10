@@ -32,8 +32,8 @@ EXISTING_SHORT_NAMES = {
 }
 
 MODES = {"car": "By car", "pt": "By public transport"}
-# Demand scenarios; "2036" is an illustrative projection made for teaching, not an ONS forecast
-DEMANDS = {"today": "Today", "2036": "In 10 years (2036, projected)"}
+# Mid-sentence form, e.g. "average journey time by car"
+MODE_NAME = {"car": "by car", "pt": "by public transport"}
 
 # What each objective asks, in the plain English shown to visitors. All are
 # "lower is better" so a single sort handles every one of them.
@@ -130,8 +130,10 @@ def best_by_count(mode: str, cutoff: float, demand: str = "today") -> dict:
     """Best possible score for 0..MAX_WHAT_IF_SITES new sites, each measure optimised separately.
 
     "avg" and "beyond" are lower-is-better; "helped" (people whose nearest centre is
-    quicker than today's) is higher-is-better. Lighter than score_all_combinations,
-    which suits a chart that reruns whenever the cutoff slider moves.
+    quicker than today's) is higher-is-better. "saved" is the average minutes saved by
+    those people, for the combination that helps the most (not optimised itself, and
+    it can dip as n grows). Lighter than score_all_combinations, which suits a chart
+    that reruns whenever the cutoff slider moves.
     """
     data = load_data()
     w = data.demand[demand]
@@ -142,19 +144,25 @@ def best_by_count(mode: str, cutoff: float, demand: str = "today") -> dict:
         "deprived": [float((today[dep] * w[dep]).sum() / w[dep].sum())],
         "beyond": [float(w[today > cutoff].sum())],
         "helped": [0.0],
+        "saved": [0.0],
     }
     for n in range(1, MAX_WHAT_IF_SITES + 1):
-        avg, beyond, helped, deprived = np.inf, np.inf, 0.0, np.inf
+        avg, beyond, helped, saved, deprived = np.inf, np.inf, 0.0, 0.0, np.inf
         for combo in itertools.combinations(data.candidates, n):
             times = nearest_time(data, mode, combo)
             avg = min(avg, float((times * w).sum() / w.sum()))
             beyond = min(beyond, float(w[times > cutoff].sum()))
-            helped = max(helped, float(w[times < today].sum()))
+            quicker = times < today
+            n_quicker = float(w[quicker].sum())
+            if n_quicker > helped:
+                helped = n_quicker
+                saved = float(((today - times)[quicker] * w[quicker]).sum() / n_quicker)
             deprived = min(deprived, float((times[dep] * w[dep]).sum() / w[dep].sum()))
         best["deprived"].append(deprived)
         best["avg"].append(avg)
         best["beyond"].append(beyond)
         best["helped"].append(helped)
+        best["saved"].append(saved)
     return best
 
 

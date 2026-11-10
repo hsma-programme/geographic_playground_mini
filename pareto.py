@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from lokigi.multiobjective import Metric
 from lokigi.site_solutions import SiteSolutionSet
 
-from core import Data, label, score_all_combinations
+from core import MODE_NAME, Data, label, score_all_combinations
 
 YOUR_PICK = "Your pick"
 YOUR_COLOUR = "#ffe600"
@@ -67,7 +67,6 @@ class Question:
 
 
 ROWS = {"car": "By car", "pt": "By public transport", "service": "How the service runs"}
-MODE_NAME = {"car": "by car", "pt": "by public transport"}
 
 
 def questions(cutoffs) -> dict:
@@ -102,7 +101,7 @@ def questions(cutoffs) -> dict:
 DEFAULT_QUESTIONS = {"car": ["beyond_car", "helped_car"], "pt": ["beyond_pt"], "service": []}
 
 
-def question_scores(data: Data, n_new: int, cutoffs, demand: str) -> pd.DataFrame:
+def question_scores(data: Data, n_new: int, cutoffs, demand: str = "today") -> pd.DataFrame:
     """Every combination scored by car and by public transport side by side (columns end _car / _pt)."""
     frames = {m: score_all_combinations(m, n_new, float(cutoffs[m]), demand) for m in MODE_NAME}
     # Both enumerate combinations in the same order, which is what lets us line the rows up
@@ -383,9 +382,10 @@ def trade_off_chart(ss, keys, your_sites, kind="radar"):
     else:
         # tickangle=0: plotly tilts crowded labels, which makes the multi-line ones unreadable
         fig.update_xaxes(ticktext=labels, tickangle=0)
-        # lokigi's title says "Better ↑", but plotly turns y-axis titles to read upwards,
-        # which leaves that arrow pointing left; → points up once turned
-        fig.update_yaxes(title_text="Better → (rescaled per metric)")
+        # lokigi's title says "Better ↑", which read as "bottom to top of the axis".
+        # Worst and best match the words in the "How to read this chart" example.
+        # plotly turns y-axis titles to read upwards, so → points up and Worst sits at the bottom
+        fig.update_yaxes(title_text="Worst → Best")
         for trace in fig.data:
             if trace.showlegend is False:  # the one trace of ruled-out options
                 trace.opacity = 0.3

@@ -88,10 +88,12 @@ section[data-testid="stSidebar"] hr {
 	margin-bottom: 1.6rem;
 }
 
-/* Narrower sidebar. */
-section[data-testid="stSidebar"][aria-expanded="true"] {
-	width: 16rem !important;
-	min-width: 16rem !important;
+/* Sidebar width. Wider than the DES mini's so the town pills (with the compact
+	sidebar pill style further down) fit three to a row, keeping the map options higher up.
+	This Streamlit marks an open sidebar with data-collapsed, not aria-expanded. */
+section[data-testid="stSidebar"][data-collapsed="false"] {
+	width: 24rem !important;
+	min-width: 24rem !important;
 }
 
 /* ---- Sidebar logo (st.logo) ---- */
@@ -111,8 +113,24 @@ section[data-testid="stSidebar"][aria-expanded="true"] {
 	top: 0.5rem;
 	right: 0.5rem;
 }
+/* While the sidebar is shut (on tab 1), Streamlit shows its re-expand button and a copy
+	of the logo in the header, over the navbar title. Keep the button, at any screen size,
+	so the sidebar can always be got back; hide the logo copy (it also shows on tabs 2
+	and 3, which have no sidebar) and start the title after the button. */
+[data-testid="stHeaderLogo"] {
+	display: none;
+}
+[data-testid="stApp"]:has([data-testid="stExpandSidebarButton"])
+	[role="tablist"]:not([data-testid="stTabPanel"] *) {
+	padding-left: 4.5rem;
+}
+/* Streamlit puts the button near the top of the header, above the navbar title;
+	move it down level with the title. */
+[data-testid="stExpandSidebarButton"] {
+	transform: translateY(2.15rem);
+}
 [data-testid="stSidebarLogo"],
-img.stLogo {
+[data-testid="stSidebar"] img.stLogo {
 	height: 11rem !important;
 	max-height: 11rem !important;
 	margin: 0 auto;
@@ -121,6 +139,7 @@ img.stLogo {
 }
 
 /* ---- Big call-to-action buttons ("Run the optimiser" and the next-tab buttons) ---- */
+.st-key-fast_forward_button button,
 .st-key-run_optimiser button,
 .st-key-go_to_optimiser button:not(:disabled),
 .st-key-to_trade button {
@@ -132,12 +151,14 @@ img.stLogo {
 	color: #ffffff;
 }
 
+.st-key-fast_forward_button,
 .st-key-run_optimiser,
 .st-key-go_to_optimiser,
 .st-key-to_trade {
 	margin: 0.75rem 0 1.5rem;
 }
 
+.st-key-fast_forward_button button p,
 .st-key-run_optimiser button p,
 .st-key-go_to_optimiser button p,
 .st-key-to_trade button p {
@@ -146,7 +167,61 @@ img.stLogo {
 	letter-spacing: 0.05em;
 }
 
+/* The next-tab buttons ("Watch the optimiser" on tab 1, "Weigh up the trade-offs" on tab 2)
+   are the main way on, so they are bigger than "Run the optimiser" and sit in a lightly
+   outlined box with their prompt above (and, on tab 1, a pointer to the extra panel below) */
+.st-key-next_step,
+.st-key-trade_step {
+	padding: 1.25rem 1.5rem;
+	border: 2px solid rgba(31, 177, 185, 0.55);
+	border-radius: 0.75rem;
+	background-color: rgba(31, 177, 185, 0.06);
+}
+.st-key-next_step h3,
+.st-key-trade_step h3 {
+	padding-top: 0;
+}
+.st-key-go_to_optimiser {
+	margin: 0.5rem 0 0.25rem;
+}
+.st-key-to_trade,
+.st-key-back_to_build {
+	margin: 0.5rem 0 0;
+}
+.st-key-go_to_optimiser button:not(:disabled),
+.st-key-to_trade button {
+	min-height: 4.5rem;
+	padding: 0 3rem;
+	box-shadow: 0 0 1.25rem rgba(31, 177, 185, 0.45);
+}
+.st-key-go_to_optimiser button p,
+.st-key-to_trade button p {
+	font-size: 1.6rem !important;
+}
+/* Tab 2's other way on, "Change the number of centres": the same size, but outlined,
+	so going forward to tab 3 stays the main path */
+.st-key-back_to_build button {
+	min-height: 4.5rem;
+	padding: 0 2.5rem;
+	background-color: transparent;
+	border: 2px solid rgba(31, 177, 185, 0.7);
+	color: #ffffff;
+}
+.st-key-back_to_build button:hover,
+.st-key-back_to_build button:focus:not(:active) {
+	background-color: rgba(31, 177, 185, 0.12);
+	border-color: #1fb1b9;
+	color: #ffffff;
+}
+.st-key-back_to_build button p {
+	font-family: "HSMA Display", sans-serif !important;
+	font-size: 1.6rem !important;
+	letter-spacing: 0.05em;
+}
+
+.st-key-fast_forward_button button:hover,
 .st-key-run_optimiser button:hover,
+.st-key-fast_forward_button button:focus:not(:active),
 .st-key-run_optimiser button:focus:not(:active),
 .st-key-go_to_optimiser button:not(:disabled):hover,
 .st-key-go_to_optimiser button:not(:disabled):focus:not(:active),
@@ -186,12 +261,43 @@ img.stLogo {
 	white-space: nowrap;
 	flex-shrink: 0;
 }
-/* Too narrow for title and tabs side by side (e.g. tab 1 with the sidebar open on a
-	laptop): title on its own row, all three tabs together underneath. */
+/* ---- Page dropdown in place of the tab pills ---- */
+/* Too narrow for the title and three pills side by side (e.g. tab 1 with the sidebar
+	open on a laptop, a tablet, a phone): swap the pills for a dropdown, added by
+	add_mobile_nav in mobile_nav.py. The container holding its script never takes up
+	space. On a phone the dropdown drops below the title (the bar wraps). */
+select.mobile-nav,
+.st-key-mobile_nav,
+/* Its layout wrapper too, or it still takes a flex gap and pushes the navbar down */
+[data-testid="stLayoutWrapper"]:has(> .st-key-mobile_nav) {
+	display: none;
+}
 @container (max-width: 1070px) {
-	[role="tablist"]:not([data-testid="stTabPanel"] *)::before {
-		flex-basis: 100%;
-		margin-right: 0;
+	[data-testid="stTab"]:not([data-testid="stTabPanel"] *) {
+		display: none;
+	}
+	select.mobile-nav {
+		display: block;
+		flex: none;
+		padding: 0.4rem 2rem 0.4rem 1rem;
+		border: 1px solid transparent;
+		border-radius: 999px;
+		background-color: #1fb1b9;
+		/* White chevron for the dropdown arrow */
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.8rem center;
+		color: #ffffff;
+		font-family: "HSMA Display", sans-serif;
+		font-size: 1.1rem;
+		letter-spacing: 0.05em;
+		appearance: none;
+		-webkit-appearance: none;
+		cursor: pointer;
+	}
+	select.mobile-nav option {
+		background-color: #1b1a1a;
+		color: #fafafa;
 	}
 }
 /* Tabs as pills; the selected one is filled. */
@@ -220,13 +326,24 @@ img.stLogo {
 	font-size: 1.1rem !important;
 	letter-spacing: 0.05em;
 }
-/* Let the header sit above the bar without swallowing clicks meant for the tabs.
-	The toolbar itself is hidden: visitors don't need the menu. */
+/* Let the header sit above the bar without swallowing clicks meant for the tabs. */
 [data-testid="stHeader"] {
 	background: transparent;
 	pointer-events: none;
 }
-[data-testid="stToolbar"], [data-testid="stDecoration"] {
+/* Don't hide the toolbar itself: the sidebar's expand button is drawn inside it.
+	It spans the header's width, so only the button takes clicks. Visitors don't
+	need the menu, so that is hidden. */
+[data-testid="stToolbar"] {
+	pointer-events: none;
+}
+[data-testid="stExpandSidebarButton"] {
+	pointer-events: auto;
+}
+[data-testid="stMainMenu"],
+[data-testid="stToolbarActions"],
+[data-testid="stAppDeployButton"],
+[data-testid="stDecoration"] {
 	display: none;
 }
 
@@ -234,6 +351,7 @@ img.stLogo {
 [role="tablist"]::before,
 [data-testid="stTab"],
 [data-testid="stTab"] p,
+.st-key-fast_forward_button button p,
 .st-key-run_optimiser button p,
 .st-key-go_to_optimiser button p,
 .st-key-to_trade button p,
@@ -270,6 +388,22 @@ h1,
 [data-testid="stAlertContentInfo"] p,
 [data-testid="stAlertContentInfo"] strong {
 	color: #fafafa;
+}
+
+/* ---- Toasts in the new-centre yellow: Streamlit's dark grey is lost on the dark page ---- */
+[data-testid="stToast"] {
+	background-color: #ffe600 !important;
+	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7) !important;
+}
+[data-testid="stToast"],
+[data-testid="stToast"] p,
+[data-testid="stToast"] button,
+[data-testid="stToast"] svg {
+	color: #1b1a1a !important;
+	fill: #1b1a1a;
+}
+[data-testid="stToastText"] p {
+	font-weight: 600;
 }
 
 /* ---- Summary boxes side by side ("Why computers?") ---- */
@@ -309,23 +443,102 @@ h1,
 
 /* ---- Specific to this app ---- */
 
+/* Tab 1 intro: the "up to 3 more" budget, in the same yellow as new centres on the map */
+.budget-pill {
+	display: inline-block;
+	padding: 0.05em 0.55em;
+	border-radius: 999px;
+	background-color: #ffe600;
+	color: #1b1a1a;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
 /* Big stand-friendly headline readout. The smaller ones must fit "23.4 min" in half
    the controls column at the 18px body size, or Streamlit truncates them. */
 [data-testid="stMetricValue"] { font-size: 1.8rem; }
 .st-key-headline [data-testid="stMetricValue"] { font-size: 2.6rem; }
+/* Let metric labels wrap rather than end in "..." (the results column is narrower now
+   the sidebar holds the town pills) */
+[data-testid="stMetricLabel"] [data-testid="stMarkdownContainer"],
+[data-testid="stMetricLabel"] p { white-space: normal; overflow: visible; }
 
 /* Bigger tap targets for the town pills and buttons */
 [data-testid="stPills"] button, .stButton button { min-height: 2.6rem; font-size: 1rem; }
+/* Town pills in the sidebar: tighter, so three fit to a row; still a finger-sized height */
+section[data-testid="stSidebar"] [data-testid="stPills"] button {
+	min-height: 2.3rem; padding: 0 0.6rem;
+}
+section[data-testid="stSidebar"] [data-testid="stPills"] button p { font-size: 0.9rem; }
 
 .big-number { font-family: var(--readout-font); font-size: 2rem; line-height: 1.1; }
 .big-number-label { font-size: 0.85rem; opacity: 0.75; }
 .champion-name { font-size: 1.25rem; font-weight: 600; }
+
+/* Tab 2's question cards (card_title in streamlit_app.py): the question as a tinted band
+	across the top of the card, divided from the rest. The negative margins undo the
+	card's own padding (17px in Streamlit 1.66.1), so the band reaches its edges. */
+[class*="st-key-title_card_"] { --card-pad: 17px; }
+[class*="st-key-title_card_"] > [data-testid="stElementContainer"]:first-child {
+	width: calc(100% + 2 * var(--card-pad)) !important;
+	max-width: none;
+	margin: calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad)) 0;
+	/* Restores the gap below the divider that the markdown wrapper's pull-up removes */
+	padding-bottom: 0.8rem;
+}
+/* Padding on the title itself: Streamlit's markdown wrapper pulls its own bottom edge up */
+.card-title {
+	padding: 0.6rem var(--card-pad);
+	background-color: rgba(31, 177, 185, 0.18);
+	border-bottom: 1px solid rgba(250, 250, 250, 0.2);
+	border-radius: 8px 8px 0 0;
+	font-size: 1rem; font-weight: 600; line-height: 1.35;
+}
+/* The travel mode ("by car") on its own line, under a card title or tab 2's "Best for:"
+	heading: softer than the title, and a fixed second line keeps the bands level */
+.by-mode { font-style: italic; font-weight: 400; opacity: 0.85; }
+h3 .by-mode { font-size: 0.75em; }
+/* Tab 2's compare maps, while side by side (they stack below 1300px): "Best for: ..." has
+	"by car" on a second line, so "Your pick" is two lines high too and the maps start level */
+@media (min-width: 1300px) {
+	.st-key-reflow_stack_compare_maps h3 { min-height: 2lh; box-sizing: content-box; }
+}
+
+/* Tab 2's last box, split in two: "Weigh up the trade-offs" on the left and "Change the
+	number of centres" on the right, divided by a line (beside it, or above it when stacked) */
+.st-key-reflow_stack_trade_step [data-testid="stColumn"] + [data-testid="stColumn"] {
+	border-left: 1px solid rgba(31, 177, 185, 0.35);
+	padding-left: 2rem;
+}
+/* Both halves full height, with each button pinned to the bottom, so the two buttons line
+	up when one heading wraps onto more lines than the other */
+.st-key-reflow_stack_trade_step [data-testid="stHorizontalBlock"] { align-items: stretch; }
+.st-key-reflow_stack_trade_step [data-testid="stColumn"] { display: flex; flex-direction: column; }
+.st-key-reflow_stack_trade_step [data-testid="stColumn"] > [data-testid="stVerticalBlock"] { flex: 1 1 auto; }
+.st-key-reflow_stack_trade_step .st-key-to_trade,
+.st-key-reflow_stack_trade_step .st-key-back_to_build { margin-top: auto; }
+@media (max-width: 1299.98px) {
+	.st-key-reflow_stack_trade_step [data-testid="stColumn"] + [data-testid="stColumn"] {
+		border-left: none;
+		padding-left: 0;
+		border-top: 1px solid rgba(31, 177, 185, 0.35);
+		padding-top: 1.25rem;
+	}
+}
 
 /* Let the town pills wrap onto several rows instead of scrolling sideways */
 [data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; }
 
 /* No hover "fullscreen" button on the NIHR logo (it is a link, not a picture to inspect) */
 .st-key-nihr_logo [data-testid="stElementToolbar"] { display: none; }
+/* NIHR logo smaller, centred, and pulled up towards the HSMA logo, leaving more room for
+	the controls. A third of the image's height is clear space above the mark, and a third
+	below, so the negative margins only trim that. */
+.st-key-nihr_logo {
+	width: 15rem !important;
+	align-self: center;
+	margin: -1.9rem auto 0.4rem;
+}
 
 /* Stand-sized zoom buttons on tab 1's map (Plotly's default icons are about 16px) */
 [class*="st-key-main_map_"] .modebar-btn {
@@ -343,4 +556,68 @@ h1,
 	flex: 0 0 auto; width: 1.8rem; height: 1.8rem; border-radius: 50%;
 	background: #ffffff; color: #1b1a1a; font-weight: 700;
 	display: flex; align-items: center; justify-content: center;
+}
+
+/* ---- Reflow side-by-side rows on narrower screens (from the DES mini) ---- */
+/* Streamlit only stacks columns below 640px, so at in-between widths (a laptop window
+	at half width, a tablet) these rows got too cramped. Below 1300px, wrap them onto
+	more lines; below 640px Streamlit's own stacking takes over again. Rows opt in
+	through the key of the container they sit in (set in streamlit_app.py):
+	- reflow_stack_*: one item per line (tab 2's compare maps, tab 3's verdict and guide)
+	- reflow_halves_*: two per line (tab 2's "best place" cards)
+	Tab 1's map and results are left side by side, so the numbers stay in view while tapping. */
+@media (max-width: 1299.98px) {
+	[class*="st-key-reflow_"] [data-testid="stHorizontalBlock"] {
+		flex-wrap: wrap;
+	}
+	/* Same rule Streamlit uses to stack columns. */
+	[class*="st-key-reflow_stack_"] [data-testid="stColumn"] {
+		min-width: calc(100% - 2rem);
+	}
+}
+@media (min-width: 640px) and (max-width: 1299.98px) {
+	[class*="st-key-reflow_halves_"] [data-testid="stColumn"] {
+		min-width: calc(50% - 1rem);
+	}
+}
+
+/* ---- Phones (Streamlit's own breakpoint: under 768px the sidebar is an overlay) ---- */
+@media (max-width: 767.98px) {
+	/* The sidebar is an overlay here: let Streamlit's own cap (about 90% of the
+		screen) win over the 24rem width, or it runs off the edge of a phone. */
+	section[data-testid="stSidebar"][data-collapsed="false"] {
+		min-width: 0 !important;
+	}
+	/* A smaller navbar title and dropdown. The title has to fit beside the
+		expand button on a 360px-wide phone. */
+	[role="tablist"]:not([data-testid="stTabPanel"] *)::before {
+		font-size: 1.25rem;
+		margin-right: 0.75rem;
+	}
+	select.mobile-nav {
+		font-size: 0.95rem;
+	}
+	/* Tab 1's pairs of metric cards: between 640 and 767px the map and results are still
+		side by side, so each card is only ~100px wide and "21.9 min" gets cut off. Stack
+		them (Streamlit already does below 640px). */
+	[class*="st-key-stack_phone_"] [data-testid="stHorizontalBlock"] { flex-wrap: wrap; }
+	[class*="st-key-stack_phone_"] [data-testid="stColumn"] { min-width: calc(100% - 2rem); }
+	/* Smaller text on the big call-to-action buttons. */
+	.st-key-fast_forward_button button p,
+	.st-key-run_optimiser button p,
+	.st-key-go_to_optimiser button p,
+	.st-key-to_trade button p,
+	.st-key-back_to_build button p {
+		font-size: 1rem !important;
+	}
+	.st-key-go_to_optimiser button:not(:disabled),
+	.st-key-to_trade button,
+	.st-key-back_to_build button {
+		min-height: 3.5rem;
+		padding: 0 1.5rem;
+	}
+	.st-key-next_step,
+	.st-key-trade_step {
+		padding: 1rem;
+	}
 }

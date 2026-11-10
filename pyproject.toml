@@ -9,7 +9,7 @@ dependencies = [
     "pandas>=3.0.0",
     "plotly>=6.0",
     "lokigi>=0.10.0",
-    "streamlit>=1.61.1",
+    "streamlit==1.66.1",
 ]
 
 [dependency-groups]
