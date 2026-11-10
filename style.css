@@ -509,6 +509,11 @@ section[data-testid="stSidebar"] [data-testid="stPills"] button p { font-size: 0
 	select.mobile-nav {
 		font-size: 0.95rem;
 	}
+	/* Tab 1's pairs of metric cards: between 640 and 767px the map and results are still
+		side by side, so each card is only ~100px wide and "21.9 min" gets cut off. Stack
+		them (Streamlit already does below 640px). */
+	[class*="st-key-stack_phone_"] [data-testid="stHorizontalBlock"] { flex-wrap: wrap; }
+	[class*="st-key-stack_phone_"] [data-testid="stColumn"] { min-width: calc(100% - 2rem); }
 	/* Smaller text on the big call-to-action buttons. */
 	.st-key-fast_forward_button button p,
 	.st-key-run_optimiser button p,

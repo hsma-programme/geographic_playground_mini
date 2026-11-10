@@ -726,7 +726,8 @@ with tab_build:
                     shown["beyond"] - base["beyond"], vs, 0, show_delta, comma=True
                 ),
             )
-        m1, m2 = st.columns(2)
+        with st.container(key="stack_phone_journeys"):
+            m1, m2 = st.columns(2)
         m1.metric(
             f"Average journey{when}",
             f"{shown['avg']:.1f} min",
@@ -750,7 +751,8 @@ with tab_build:
             else None,
         )
         if has_new:
-            m3, m4 = st.columns(2)
+            with st.container(key="stack_phone_helped"):
+                m3, m4 = st.columns(2)
             if future:
                 m3.metric(
                     "People helped in 2036",
