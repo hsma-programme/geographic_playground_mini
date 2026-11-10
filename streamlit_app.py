@@ -914,24 +914,30 @@ with tab_opt:
         n_new = len(new_sites)
         scores = score_all_combinations(opt_mode, n_new, float(opt_cutoff), opt_demand)
         n_total = len(scores)
-        st.markdown(
-            f"You chose **{label(data, new_sites)}**. Is that the best place? "
-            f"There are **{n_total:,}** ways to place {n_new} new "
-            f"centre{'s' if n_new > 1 else ''} - a computer can try them all.\n\n"
-            "This is called *location optimisation* - a computer "
-            "<span style='color:#ffe600;font-weight:700'>checks every option and finds the best one "
-            "for the goal you choose</span>.",
-            unsafe_allow_html=True,
+        # Intro beside the scoring note; the reflow_stack_ key stacks them on narrower screens
+        intro_col, note_col = st.container(key="reflow_stack_opt_intro").columns(
+            [3, 2], gap="large"
         )
-        st.caption(
-            f"Every option is scored on average journey time {pareto.MODE_NAME[opt_mode]} for "
-            "people aged 50-84. Don't think that's the most important thing to score on? "
-            "Don't worry - we'll explore alternatives later."
+        with intro_col:
+            st.markdown(
+                f"You chose **{label(data, new_sites)}**. Is that the best place? "
+                f"There are **{n_total:,}** ways to place {n_new} new "
+                f"centre{'s' if n_new > 1 else ''} - a computer can try them all.\n\n"
+                "This is called *location optimisation* - a computer "
+                "<span style='color:#ffe600;font-weight:700'>checks every option and finds the best one "
+                "for the goal you choose</span>.",
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                "Run the optimiser", key="run_optimiser", icon=":material/rocket_launch:"
+            ):
+                st.session_state.optimiser_ran = True
+        note_col.info(
+            f"The optimiser scores every option on **average journey time {pareto.MODE_NAME[opt_mode]}** "
+            "for people aged 50-84. Don't think that's the most important thing to score on? "
+            "Don't worry - we'll explore alternatives later.",
+            icon=":material/info:",
         )
-        if st.button(
-            "Run the optimiser", key="run_optimiser", icon=":material/rocket_launch:"
-        ):
-            st.session_state.optimiser_ran = True
 
         if st.session_state.get("optimiser_ran"):
             render_optimiser_animation(data, opt_mode, scores, "avg")
