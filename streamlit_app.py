@@ -517,7 +517,7 @@ def on_map_click(key):
     if site not in sites and len(st.session_state.new_sites) > MAX_NEW_SITES:
         st.toast(
             f"The budget stretches to {MAX_NEW_SITES} new centres - tap one of yours to swap it out.",
-            icon="☝️",
+            icon=":material/front_hand:",
         )
 
 
@@ -528,7 +528,7 @@ def on_question_change(row):
         state[f"pareto_{row}"] = state[f"pareto_prev_{row}"]
         st.toast(
             f"You can weigh up to {pareto.MAX_QUESTIONS} questions at once - untick one first.",
-            icon="☝️",
+            icon=":material/front_hand:",
         )
     for r in pareto.ROWS:
         state[f"pareto_prev_{r}"] = list(state[f"pareto_{r}"])

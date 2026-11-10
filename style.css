@@ -390,6 +390,22 @@ h1,
 	color: #fafafa;
 }
 
+/* ---- Toasts in the new-centre yellow: Streamlit's dark grey is lost on the dark page ---- */
+[data-testid="stToast"] {
+	background-color: #ffe600 !important;
+	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7) !important;
+}
+[data-testid="stToast"],
+[data-testid="stToast"] p,
+[data-testid="stToast"] button,
+[data-testid="stToast"] svg {
+	color: #1b1a1a !important;
+	fill: #1b1a1a;
+}
+[data-testid="stToastText"] p {
+	font-weight: 600;
+}
+
 /* ---- Summary boxes side by side ("Why computers?") ---- */
 .result-box {
 	display: flex;
