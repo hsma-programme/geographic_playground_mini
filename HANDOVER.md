@@ -256,16 +256,18 @@ container; the button is bigger than the other call-to-action buttons, with a te
 pointing to an optional extra further down. That extra, "Extra: how many centres would be enough?", sits below
 the box behind a divider, with text on the left and the chart on the right (they stack under 1300px via
 `reflow_stack_what_if`). It used to sit under the map, beside the results, and a reviewer read it as tied to their
-own picks ("I've chosen one centre but it talks about 8", "what is the yellow bar?"). So its text now says it steps
-back from the towns you picked, that each bar uses the best sites, that the budget covers 3 (solid bars), and that
-the yellow outline is your current number of centres; the outlined bar's tick also reads "you". The panel
+own picks ("I've chosen one centre but it talks about 8", "what is the yellow bar?"). A later version outlined the
+visitor's current number of centres in yellow ("you" under the tick) while warning the bars "may not be the towns
+you picked", which read as contradictory. So the panel now never mentions the visitor's picks (it doesn't depend on
+them): its text says each bar uses the best sites and the budget covers 3 (solid bars), and it ends with a prompt
+to try a different option under "What the map shows" (also shown on the "nobody is too far" message). The panel
 (`render_what_if` in `streamlit_app.py`, `best_by_count` in `core.py`, `diminishing_returns_chart` in `figures.py`)
 shows what the best 1st to 8th extra
 centre adds, on the measure the sidebar map is showing: people within the cutoff ("too far" view), minutes cut from
 the average journey ("journey time"), minutes cut from the average in the most deprived areas ("most deprived";
 `best_by_count` has a `deprived` series for it), or people with a closer centre ("closest centre" and "quicker journey"). Each count uses its own
 best combination for that measure, so the bars always fall. Bars within the 3-centre budget are solid, the rest
-faded, and the bar for the visitor's current number of centres is outlined yellow. Deliberately left out: the
+faded. Deliberately left out: the
 visitor's own per-centre gains in tap order (they can rise, which muddies the message). Verified in headless
 Chrome for car and public transport in all three views, with the sentence numbers matching a scratch exhaustive
 run. The new layout was checked in headless Chrome at 1500, 1000 and 390 wide, with 0, 1 and 3 centres, and with

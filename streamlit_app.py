@@ -224,23 +224,30 @@ def number_boxes(items):
     st.markdown(f"<div class='result-box'>{boxes}</div>", unsafe_allow_html=True)
 
 
-def render_what_if(mode, cutoff, view, n_chosen):
+def render_what_if(mode, cutoff, view):
     """Diminishing returns: what each extra centre adds, on the measure the map is showing.
 
-    The 'where need grows' map has no measure of its own, so it uses 'who is too far',
-    which its caption talks about.
+    Depends only on the sidebar's travel mode, map view and cutoff, never on the towns
+    picked, so the text doesn't mention the visitor's picks. The 'where need grows' map
+    has no measure of its own, so it uses 'who is too far', which its caption talks about.
     """
     measure = "what the map is showing"
     if view == "growth":
         view, measure = "cutoff", f"people more than {cutoff} minutes away"
     best = best_by_count(mode, float(cutoff))
     st.subheader("Extra: how many centres would be enough?")
+    try_another = (
+        "Try a different option under **What the map shows** on the left - car or public "
+        "transport, another goal, or a different 'too far' time - and see how many centres "
+        "each goal needs."
+    )
     if view == "cutoff" and best["beyond"][0] == 0:
         st.markdown("**What if the budget were bigger?**")
         st.caption(
             f"Nobody is more than {cutoff} minutes from a centre today, so extra centres "
             "can't help on this measure."
         )
+        st.info(try_another, icon=":material/tune:")
         return
     if view == "cutoff":
         series = best["beyond"]
@@ -300,27 +307,19 @@ def render_what_if(mode, cutoff, view, n_chosen):
     )
     with text_col:
         st.markdown(
-            "**What if the budget were bigger?** This steps back from the towns you picked. "
+            "**What if the budget were bigger?** "
             f"For each number of new centres, from 1 to {len(gains)}, the computer found the "
             f"best places for {measure}, and each bar is how much that extra "
-            f"centre adds. Your budget covers {MAX_NEW_SITES} (the solid bars); the faded bars "
+            f"centre adds. The budget covers {MAX_NEW_SITES} (the solid bars); the faded bars "
             "show what more money would buy."
         )
-        st.markdown(
-            "The bar outlined in yellow is where you are now: "
-            f"**{n_chosen} new centre{'s' if n_chosen > 1 else ''}**."
-            if n_chosen
-            else "Pick some centres and the bar for how many you've chosen is outlined in yellow."
-        )
         st.markdown(first + later)
+        st.info(try_another, icon=":material/tune:")
     chart_col.plotly_chart(
-        diminishing_returns_chart(gains, n_chosen, MAX_NEW_SITES, y_title, fmt),
+        diminishing_returns_chart(gains, MAX_NEW_SITES, y_title, fmt),
         key="what_if",
         width="stretch",
         config={"displayModeBar": False},
-    )
-    chart_col.caption(
-        "Each bar uses the best choice of sites for this measure, which may not be the towns you picked."
     )
 
 
@@ -849,7 +848,7 @@ with tab_build:
         )
 
     st.divider()
-    render_what_if(mode, cutoff, view, len(new_sites))
+    render_what_if(mode, cutoff, view)
 
 # ---------------------------------------------------------------- tab 2
 with tab_opt:

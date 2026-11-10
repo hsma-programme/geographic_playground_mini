@@ -214,11 +214,10 @@ MAP_ZOOM_CONFIG = {
 }
 
 
-def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280) -> go.Figure:
+def diminishing_returns_chart(gains, budget, y_title, fmt, height=280) -> go.Figure:
     """Bars of what each extra centre adds (best possible choice each time).
 
-    Bars within the budget are solid, the rest faded; the bar for the number of
-    centres the visitor has chosen so far is outlined in yellow.
+    Bars within the budget are solid, the rest faded.
     """
     n = len(gains)
     fig = go.Figure(
@@ -231,10 +230,6 @@ def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280)
             cliponaxis=False,
             marker=dict(
                 color=["#1fb1b9" if i < budget else "rgba(31,177,185,0.35)" for i in range(n)],
-                line=dict(
-                    color=[NEW_SITE if i == n_chosen - 1 else "rgba(0,0,0,0)" for i in range(n)],
-                    width=4,
-                ),
             ),
             hoverinfo="skip",
         )
@@ -245,11 +240,6 @@ def diminishing_returns_chart(gains, n_chosen, budget, y_title, fmt, height=280)
         xaxis=dict(
             title="Number of new centres (faded = over budget)", tickfont=dict(size=14), fixedrange=True,
             tickmode="array", tickvals=[f"{i}" for i in range(1, n + 1)],
-            # Name the outlined bar under its tick, so the outline explains itself
-            ticktext=[
-                f"<b>{i}</b><br><span style='color:{NEW_SITE}'>you</span>" if i == n_chosen else f"{i}"
-                for i in range(1, n + 1)
-            ],
         ),
         yaxis=dict(title=y_title, tickfont=dict(size=12), fixedrange=True, rangemode="tozero"),
         bargap=0.25,
