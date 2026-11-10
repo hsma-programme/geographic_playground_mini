@@ -573,12 +573,7 @@ with tab_build:
             width="stretch",
             config={"displayModeBar": False},
         )
-        st.caption(
-            "Each point is people grouped by journey time, so the higher the line, the more people. "
-            "The further to the left the area under the line sits, the better: it means shorter journeys. "
-            f"The red part is over {cutoff} minutes."
-            + (" The grey line is today's centres." if has_new else "")
-        )
+        st.caption("The further left the hump sits, the shorter people's journeys.")
 
     with map_col:
         if view == "time":

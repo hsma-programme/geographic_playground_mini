@@ -84,6 +84,16 @@ centre is added, today's network shows behind it as a grey line, so the red tail
 move. The top is a rounded line through the groups, not a density estimate (which would smear the public transport
 pile-up at the 180-minute cap). Fixed x-axis per mode (car 0-65, public transport 0-180); no legend, zoom disabled.
 
+The chart is labelled directly rather than explained in a caption (`_label_journey_chart`): "Within N min" and
+"Over N min" with people counts (the same split as the headline metric, so the red number matches it), "Grey line =
+today's centres" on the grey line (two lines), "N min limit" on the cutoff line, and "more people" for the unlabelled height. Placement
+is rule-based: the red label goes inside the red area when it is wide and tall (low cutoffs, public transport),
+otherwise above it with an arrow; near the right edge it and the cutoff label move left of the line. The grey label
+goes where the grey line sits clearest above the fill, preferring the blue side so it stays clear of the red label.
+The x-axis title is "Minutes to the nearest centre", short enough not to clip at phone width.
+Checked by eye in standalone renders (car at 20/30/45/60/70 min, public transport at 60/90/120, with and without
+new centres) and in the app at desktop and 390 px phone width. Public transport is busier because its curve is lumpy.
+
 Verified in headless Chrome: car with no centres and with two, public transport and 2036 demand with two centres,
 no tracebacks. Not verified: hover text, touch, cutoff slider away from its default (car cutoffs above 65 minutes
 omit the red part and cutoff line by design, untested visually). Known wart: public transport is lumpy because the

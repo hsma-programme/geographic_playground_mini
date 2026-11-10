@@ -269,6 +269,10 @@ def compare_map(
 HIST_BIN = 5
 HIST_MAX = {"car": 65, "pt": 180}  # public transport is capped at 180 (unreachable areas)
 GREY = "#b8b8b8"
+# Journey-chart labels, as shares of the x-axis: half a two-line label's width, and where the
+# right edge gets too close for a label to sit right of the cutoff line
+LABEL_HALF_WIDTH = 0.12
+NEAR_EDGE = 0.75
 
 
 def _people_by_time(times, weights, mode):
@@ -320,9 +324,13 @@ def journey_chart(mode, today_times, now_times, weights, cutoff, show_today, hei
         fig.add_trace(area(mids > cutoff, FAR, cutoff, at_cut, extra_at_start=True))
         fig.add_vline(
             x=cutoff, line=dict(color="#ffffff", width=1.5, dash="dash"),
-            annotation_text=f"{cutoff:g} min", annotation_position="top right",
+            annotation_text=f"{cutoff:g} min limit",
+            # Near the right edge the label would be cut off, so it goes on the left of the line
+            annotation_position="top left" if cutoff > NEAR_EDGE * top else "top right",
             annotation_font=dict(size=14),
         )
+    peak = max(now.max(), today.max() if show_today else 0)
+    _label_journey_chart(fig, mids, now, today, weights, now_times, cutoff, top, peak, show_today)
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -331,7 +339,77 @@ def journey_chart(mode, today_times, now_times, weights, cutoff, show_today, hei
         margin=dict(l=10, r=10, t=10, b=40), height=height,
     )
     fig.update_xaxes(
-        range=[0, top], title_text="Journey time to the nearest centre (minutes)", fixedrange=True,
+        range=[0, top], title_text="Minutes to the nearest centre", fixedrange=True,
     )
-    fig.update_yaxes(rangemode="tozero", showticklabels=False, showgrid=False, fixedrange=True)
+    # Headroom above the peak for the labels
+    fig.update_yaxes(range=[0, peak * 1.3], showticklabels=False, showgrid=False, fixedrange=True)
     return fig
+
+
+def _label_journey_chart(fig, mids, now, today, weights, now_times, cutoff, top, peak, show_today):
+    """Name the blue and red areas and the grey line on the chart itself, for walk-up visitors.
+
+    Placement is by simple rules (checked by eye for car and public transport at several
+    cutoffs), so labels sit in clear space rather than needing a legend.
+    """
+    half = LABEL_HALF_WIDTH * top
+    fig.add_annotation(
+        text="▲ more people", x=0, y=1, xref="paper", yref="paper", xanchor="left", yanchor="top",
+        font=dict(size=13, color=GREY), showarrow=False,
+    )
+    # Same split as the headline metric (summarise: over means strictly more than the cutoff)
+    within, over = weights[now_times <= cutoff].sum(), weights[now_times > cutoff].sum()
+
+    def inside(text, mask, lo, hi):
+        """White label in the filled area, near its middle and below the line."""
+        xs, ys = mids[mask], now[mask]
+        x = float((xs * ys).sum() / ys.sum()) if ys.sum() else (lo + hi) / 2
+        x = min(max(x, lo + half), hi - half)
+        under = ys[(xs >= x - half) & (xs <= x + half)]
+        floor = under.min() if under.size else 0
+        fig.add_annotation(
+            text=text, x=x, y=max(0.13 * peak, min(0.45 * floor, floor - 0.15 * peak)),
+            font=dict(size=14, color="#ffffff"), showarrow=False,
+        )
+
+    blue_end = min(cutoff, top)
+    if blue_end >= 2 * half:
+        heading = f"Within {cutoff:g} min" if cutoff < top else f"Everyone within {cutoff:g} min"
+        inside(f"<b>{heading}</b><br>{within:,.0f} people", mids < cutoff, 0, blue_end)
+
+    if cutoff < top:
+        red = mids > cutoff
+        text = f"<b>Over {cutoff:g} min</b><br>{over:,.0f} people"
+        if top - cutoff >= 0.4 * top and now[red].max() > 0.3 * peak:
+            # A big red area: label it inside, like the blue one
+            inside(text, red, cutoff, top)
+        else:
+            # A thin red tail: label it in the space above, with an arrow into the red.
+            # Right of the cutoff line if there is room, otherwise left of it.
+            i = int(np.flatnonzero(red)[np.argmax(now[red])])
+            fig.add_annotation(
+                text=text, x=mids[i], y=now[i] * 0.5,
+                ax=top if cutoff <= NEAR_EDGE * top else cutoff - 0.02 * top, ay=peak,
+                axref="x", ayref="y", xanchor="right", font=dict(size=14, color=FAR),
+                bgcolor="#1b1a1a",  # on narrow screens it can cross the cutoff line
+                showarrow=True, arrowhead=0, arrowwidth=1.5, arrowcolor=FAR, standoff=2,
+            )
+
+    if show_today:
+        # Where the grey line stands clearest above the fill, on the blue side if possible
+        # (the red side is where the red label goes)
+        gap = today - now
+        side = mids < cutoff - HIST_BIN
+        if side.any() and gap[side].max() > 0.03 * peak:
+            i = int(np.flatnonzero(side)[np.argmax(gap[side])])
+        elif gap.max() > 0.03 * peak:
+            i = int(np.argmax(gap))
+        else:
+            i = int(np.argmax(today))
+        at = mids[i] / top
+        fig.add_annotation(
+            text="Grey line =<br>today's centres", x=mids[i], y=today[i], yshift=4, yanchor="bottom",
+            xanchor="right" if at > 0.85 else "left" if at < 0.15 else "center",
+            font=dict(size=13, color=GREY), showarrow=False,
+            bgcolor="#1b1a1a",  # app background, so the label reads over the lines
+        )
