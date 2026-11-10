@@ -618,7 +618,7 @@ with tab_build:
         ### Where should the next diagnostic centre go?
 
         In this imaginary version of Devon there are **4 community diagnostic centres**,
-        and **you have budget for up to 3 more**.
+        and you have budget for <span class="budget-pill">up to 3 more</span>.
         Commissioners have asked you to improve access for those aged 50-84 specifically,
         so those are the population numbers used.
 

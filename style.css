@@ -406,6 +406,17 @@ h1,
 
 /* ---- Specific to this app ---- */
 
+/* Tab 1 intro: the "up to 3 more" budget, in the same yellow as new centres on the map */
+.budget-pill {
+	display: inline-block;
+	padding: 0.05em 0.55em;
+	border-radius: 999px;
+	background-color: #ffe600;
+	color: #1b1a1a;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
 /* Big stand-friendly headline readout. The smaller ones must fit "23.4 min" in half
    the controls column at the 18px body size, or Streamlit truncates them. */
 [data-testid="stMetricValue"] { font-size: 1.8rem; }
