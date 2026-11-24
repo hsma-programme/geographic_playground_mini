@@ -76,3 +76,28 @@ Testing locally:
 `.github/workflows/stlite-pages.yml` builds and publishes it to GitHub Pages on every push to `main`
 (set Settings, Pages, Source to "GitHub Actions" once). The first load downloads tens of MB and takes
 20-60 seconds; after that the browser caches it.
+
+### Limitations of the in-browser build
+
+- **It needs internet.** stlite and Python (Pyodide) load from jsDelivr, and the map tiles, Google Fonts and the
+  plotly.js script in the optimiser animation are fetched too. It is not an offline stand build; vendoring those
+  would be a separate job.
+- **The first load is slow.** The browser downloads Python, Streamlit, pandas, pyarrow, plotly, matplotlib and
+  seaborn (tens of MB, 20-60 seconds), then caches them.
+- **lokigi is imported with stand-ins.** lokigi loads mapping and spatial packages (geopandas, pysal, osmium,
+  folium and others) that tab 3 never uses and Python in the browser can't supply, so `stlite/stlite_shims.py`
+  replaces them with empty modules. If lokigi adds another import like that, the page fails at `import pareto`
+  with `ModuleNotFoundError`: add the module name to `STUBBED` in that file.
+- **The stand-ins hide real modules too.** `requests`, `tqdm` and `joblib` exist in the browser's Python but are
+  stubbed as well, for the whole session. Nothing in the app needs them and nothing broke in testing, but a new
+  Streamlit feature that used them would get an empty class and fail confusingly.
+- **The build edits copies with exact-text matches.** The optimiser animation's page name (`animation.py`, the
+  `name = f"optimiser_..."` line) is rewritten in the copy, because a content hash can't match between the build
+  and the browser. If that line changes, the build stops with an assertion naming `HASH_NAME` in
+  `stlite/build.py`; update it there. The sidebar width rules are appended in the same way (`SIDEBAR_CSS`),
+  because stlite's Streamlit (1.65) marks an open sidebar differently from the pinned 1.66.1.
+- **Only three animation pages exist.** Tab 2 always runs by car, with the default cutoff, for today's
+  population, so the build pre-renders one page for 1, 2 and 3 new centres. A new variant needs its own page.
+- **It runs a different Streamlit.** stlite bundles its own fork (currently 1.65.0), not the pinned 1.66.1.
+  After changing `STLITE_VERSION` in `stlite/build.py`, check all three tabs, the sidebar, the navbar and the
+  page dropdown again.

@@ -68,19 +68,7 @@ section[data-testid="stSidebar"][aria-expanded="true"] {
 		min-width: 0 !important;
 	}
 }
-/* stlite build: ":yellow[**...**]" text in an info box (see TEXT_PATCHES), in the app's own yellow.
-   Streamlit's :yellow is paler, and style.css forces strong in info boxes to near-white. */
-[data-testid="stAlertContentInfo"] .stMarkdownColoredText,
-[data-testid="stAlertContentInfo"] .stMarkdownColoredText strong {
-	color: #ffe600 !important;
-}
 """
-
-
-# Wording tweaks that apply to the stlite build only (exact text in the copied streamlit_app.py)
-TEXT_PATCHES = [
-    ('"Tap a grey dot on the map, or a town', '":yellow[**Tap a grey dot on the map**], or a town'),
-]
 
 
 def prerender_animations(out: Path):
@@ -130,11 +118,7 @@ def main():
     # The stubs must be in place before lokigi is imported
     shutil.copy(ROOT / "stlite" / "stlite_shims.py", out / "stlite_shims.py")
     entry = out / "streamlit_app.py"
-    app_src = entry.read_text(encoding="utf8")
-    for old, new in TEXT_PATCHES:
-        assert old in app_src, f"streamlit_app.py changed: update TEXT_PATCHES in stlite/build.py ({old!r})"
-        app_src = app_src.replace(old, new)
-    entry.write_text("import stlite_shims  # noqa: F401  (stlite build only)\n" + app_src, encoding="utf8")
+    entry.write_text("import stlite_shims  # noqa: F401  (stlite build only)\n" + entry.read_text(encoding="utf8"), encoding="utf8")
 
     vendor("lokigi", out)
     vendor("sweetpareto", out)
@@ -161,7 +145,6 @@ def main():
     print(f"Preview: python -m http.server {args.port} -d {out}")
     if args.serve:
         serve(out, args.port)
-
 
 
 def serve(out: Path, port: int):

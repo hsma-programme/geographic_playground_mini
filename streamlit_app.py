@@ -696,7 +696,7 @@ with tab_build:
         unsafe_allow_html=True,
     )
     st.info(
-        "Tap a grey dot on the map, or a town in the list on the left, to open a centre there, "
+        ":yellow[**Tap a grey dot on the map**], or a town in the list on the left, to open a centre there, "
         'and watch the red "too far" areas shrink.',
         icon=":material/touch_app:",
     )

@@ -389,6 +389,12 @@ h1,
 [data-testid="stAlertContentInfo"] strong {
 	color: #fafafa;
 }
+/* Coloured text (":yellow[...]") in an info box, in the app's own yellow: Streamlit's :yellow
+   is paler, and the rule above would otherwise turn its bold text near-white. */
+[data-testid="stAlertContentInfo"] .stMarkdownColoredText,
+[data-testid="stAlertContentInfo"] .stMarkdownColoredText strong {
+	color: #ffe600 !important;
+}
 
 /* ---- Toasts in the new-centre yellow: Streamlit's dark grey is lost on the dark page ---- */
 [data-testid="stToast"] {
