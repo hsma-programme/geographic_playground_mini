@@ -53,3 +53,26 @@ gives 1600px). Everything still works with the dropdown; it just takes one more 
 No optimiser runs at runtime: with 18 sites, every combination is scored directly in numpy (`core.py`).
 [lokigi](https://github.com/hsma-tools/lokigi) is used only on tab 3, to find the options nothing
 else beats and to draw the charts. It is a large install, so the first start-up is slow.
+
+## In-browser version (stlite)
+
+The same app also runs entirely in the visitor's browser, with no server, using
+[stlite](https://github.com/whitphx/stlite) (Streamlit on Pyodide). It is built from this source, which
+is not changed, by `stlite/build.py`:
+
+    uv run python stlite/build.py --serve   # builds _site/, then serves http://localhost:8599/
+
+`--serve` builds and starts a plain static server (`--port` changes the port; Ctrl+C stops it). Or do it in
+two steps: `uv run python stlite/build.py`, then `python -m http.server 8599 -d _site`.
+
+Testing locally:
+- Open it over `http://localhost`, not by double-clicking `index.html`: a `file://` page can't load the app's files.
+- The first load takes 20-60 seconds while the browser downloads Python and the packages. It needs internet
+  (stlite and Pyodide come from jsDelivr, as do map tiles and fonts).
+- After changing an app file, stop the server, rebuild, then hard-refresh (Ctrl+Shift+R) so the browser doesn't reuse cached files.
+- There is no server log. If the page stays blank, open the browser's DevTools (F12) and read the Console for
+  the Python traceback; `HANDOVER.md` lists the known causes.
+
+`.github/workflows/stlite-pages.yml` builds and publishes it to GitHub Pages on every push to `main`
+(set Settings, Pages, Source to "GitHub Actions" once). The first load downloads tens of MB and takes
+20-60 seconds; after that the browser caches it.

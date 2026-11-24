@@ -347,3 +347,41 @@ Technical follow-ups:
 - Report what was directly verified versus inferred.
 - A same-sized adjacent bug found in passing can be folded in and flagged; anything structurally bigger needs
   a scope question first.
+
+## stlite (in-browser) build
+
+`stlite/build.py` builds a static site (`_site/`, git-ignored) that runs the app in the browser with
+`@stlite/browser` 1.12.3 (Streamlit 1.65 fork, Pyodide 314 / Python 3.14). The Community Cloud app and its
+files are untouched; only the built copies are patched. Deployed to GitHub Pages by
+`.github/workflows/stlite-pages.yml` (not yet run: needs Pages enabled and a merge to `main`).
+
+Why not stlitepack: 0.4.5 (Aug 2025) defaults to stlite 0.80.5 and can't do the four things this app needs
+(install lokigi without its dependencies, vendor sweetpareto, ship pre-rendered `app/static` pages, patch the
+entrypoint). Why not Cloud Run: it runs the app unchanged but costs roughly $0-5/month at low use, ~$15-20 to
+keep warm, ~$70 if a tab is left open all month (Streamlit's WebSocket counts as an active request), and cold
+starts take 20-40 s. It remains the fallback if the browser port ever proves unfaithful.
+
+What the build does, and why:
+- **lokigi** is vendored from the environment along with **sweetpareto** (sdist only, so micropip can't install it).
+  `lokigi/__init__` eagerly imports geopandas, pysal, osmium, folium and more, none of which tab 3 uses and most
+  of which Pyodide lacks. `stlite/stlite_shims.py` (imported first in the built `streamlit_app.py`, and inert
+  outside Pyodide) stubs them. If lokigi gains a new eager import, the symptom is `ModuleNotFoundError` on the
+  `import pareto` line; add the name to `STUBBED`.
+- **Animation pages**: the hash-named page `animation.py` writes at runtime can't exist on a static host, and its
+  hash differs between CPython and Pyodide. The built copy of `animation.py` names pages by option count instead
+  (`optimiser_14/91/364.html`) and the build pre-renders those three into `app/static/`. The build asserts the
+  line it patches still exists.
+- **Config**: `.streamlit/config.toml` goes in through `streamlitConfig`, not as a file. stlite 1.12.3 crashes
+  (react-helmet, blank page) on a `theme.font` with a font URL, so the build drops it and loads the Google Font
+  from `index.html`; `style.css` already applies the family.
+- **Sidebar width**: stlite's Streamlit 1.65 marks an open sidebar `aria-expanded="true"`, not the `data-collapsed="false"` that
+  1.66.1 (and `style.css`) use, so the width rules didn't match and the sidebar stayed 300px, clipping "Start again" and
+  "Surprise me". The build appends the same two rules for the old attribute to its copy of `style.css` (`SIDEBAR_CSS`).
+  Any other rule keyed on Streamlit's internal markup may need the same treatment; check the sidebar, navbar and
+  dropdown after bumping `STLITE_VERSION`.
+- First load downloads Pyodide, Streamlit, pandas, pyarrow, plotly, matplotlib and seaborn.
+
+Verified in headless Chrome against the built site: tab 1 (toggling a site, metrics, charts, sidebar, fonts), tab 2
+(animation runs to "Done!", results section), tab 3 (radar and Lines with 3 questions, verdict), phone width
+(sidebar and page dropdown present). Not verified: touch, the 5-question cap toast, public transport, real stand
+wifi load time, offline use (jsDelivr, map tiles, fonts and the plotly CDN are still needed), and the Pages deploy.

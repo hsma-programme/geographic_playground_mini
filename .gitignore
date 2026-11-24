@@ -5,3 +5,4 @@
 out/
 *_profile/
 static/optimiser_*.html
+_site/
